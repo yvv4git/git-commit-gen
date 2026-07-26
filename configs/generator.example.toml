@@ -1,0 +1,21 @@
+[log]
+level = "info"
+
+[generator]
+baseBranch = "main"
+rulesFile = "rules.md"
+
+[llm]
+type = "open-ai"
+
+[llm.proxy]
+enable = false
+type = "socks5"
+addr = "localhost:1080"
+login = ""
+passw = ""
+
+[llm.openai]
+api = "https://api.openai.com/v1"
+token = ""
+model = "gpt-4o"
