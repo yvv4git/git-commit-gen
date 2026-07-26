@@ -1,5 +1,7 @@
 # git-commit-gen
 
+![git-commit-gen demo](./assets/app.png)
+
 Generate git commit messages automatically using an LLM.
 
 ## How it works
@@ -41,3 +43,13 @@ Environment variables (OPENAI_TOKEN, OPENAI_API, OPENAI_MODEL, PROXY_TYPE, etc.)
 ## Rules file
 
 The rules.md file contains guidelines for commit message format. The LLM will follow these rules when generating messages. See rules.example.md for an example.
+
+<p align="center">
+  <a href="https://tonviewer.com/UQCcbp-mue-7HTjDNQ_ZrKtg-tUxIFu817APmItjXasiBGP3">
+    <img src="https://img.shields.io/badge/Buy%20me%20a%20TON-0098EA?style=for-the-badge">
+  </a>
+</p>
+
+<p align="center">
+  If this tool helps you, consider buying me a coffee! ☕
+</p>
