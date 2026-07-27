@@ -2,12 +2,11 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/yvv4git/git-commit-gen"
 	"github.com/yvv4git/git-commit-gen/internal/adaptors/fs"
 	"github.com/yvv4git/git-commit-gen/internal/core"
 )
 
-func SetupCommand() *cobra.Command {
+func SetupCommand(configContent, rulesContent string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup",
 		Short: "Create default config and rules files",
@@ -20,8 +19,8 @@ Example:
 			setup := core.NewSetup(&f, &f)
 
 			return setup.Run(cmd.Context(), &core.SetupParams{
-				ConfigContent: defaults.ConfigContent,
-				RulesContent:  defaults.RulesContent,
+				ConfigContent: configContent,
+				RulesContent:  rulesContent,
 			})
 		},
 	}

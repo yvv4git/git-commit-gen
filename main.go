@@ -1,12 +1,19 @@
 package main
 
 import (
+	_ "embed"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/yvv4git/git-commit-gen/cmd/generator/commands"
+	"github.com/yvv4git/git-commit-gen/cmd"
 )
+
+//go:embed config.example.toml
+var defaultConfigContent string
+
+//go:embed rules.example.md
+var defaultRulesContent string
 
 func main() {
 	rootCommand := &cobra.Command{
@@ -16,7 +23,7 @@ func main() {
 	rootCommand.PersistentFlags().StringP("config", "c", defaultConfigPath(), "Path to config file")
 
 	rootCommand.AddCommand(commands.GenCommand())
-	rootCommand.AddCommand(commands.SetupCommand())
+	rootCommand.AddCommand(commands.SetupCommand(defaultConfigContent, defaultRulesContent))
 
 	if err := rootCommand.Execute(); err != nil {
 		os.Exit(1)
