@@ -11,10 +11,5 @@ func Load[T any](path string, cfg *T) error {
 		return fmt.Errorf("read config: %w", err)
 	}
 
-	// I think it's not need
-	// if err := cleanenv.ReadEnv(cfg); err != nil {
-	// 	stdLog.Fatalf("Failed load env: %v", err)
-	// }
-
 	return nil
 }
