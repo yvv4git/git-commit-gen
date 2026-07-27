@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"os"
+	"path/filepath"
 
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
@@ -20,4 +21,17 @@ func (f *FS) ReadFile(_ context.Context, params *ports.ReadFileParams) (*ports.R
 	}
 
 	return &ports.ReadFileResult{Value: string(data)}, nil
+}
+
+func (f *FS) WriteFile(_ context.Context, params *ports.WriteFileParams) error {
+	return os.WriteFile(params.FilePath, []byte(params.Content), 0644)
+}
+
+func (f *FS) DefaultConfigDir(_ context.Context) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, ".config", "git_commit_gen"), nil
 }
