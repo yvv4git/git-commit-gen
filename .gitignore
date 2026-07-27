@@ -32,7 +32,7 @@ go.work.sum
 # .vscode/
 
 # Configs
-configs/generator.toml
+config.toml
 
 # Rules
 rules.md

@@ -11,21 +11,39 @@ Generate git commit messages automatically using an LLM.
 - The LLM generates a commit message based on the diff and your rules.md file
 - The commit message is printed to stdout
 
+## Installation
+
+```bash
+go install github.com/yvv4git/git-commit-gen@latest
+```
+
+After installation, create default config files:
+
+```bash
+git-commit-gen setup
+```
+
+This creates `config.toml` and `rules.md` in `~/.config/git_commit_gen/`.
+
 ## Usage
 
-Build:
+Run inside a git repository:
 
 ```bash
-go build -o git-commit-gen ./cmd/generator
+git-commit-gen gen
 ```
 
-Run:
+If you want to see message in stdout:
 
 ```bash
-git-commit-gen --config configs/generator.toml gen
+git-commit-gen gen
 ```
 
-You need to be inside a git repository when running this.
+To preview the generated message before applying:
+
+```bash
+git-commit-gen gen -v
+```
 
 ## Configuration
 
