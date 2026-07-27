@@ -15,7 +15,8 @@ func main() {
 	}
 	rootCommand.PersistentFlags().StringP("config", "c", defaultConfigPath(), "Path to config file")
 
-	rootCommand.AddCommand(commands.SetupGenCommand())
+	rootCommand.AddCommand(commands.GenCommand())
+	rootCommand.AddCommand(commands.SetupCommand())
 
 	if err := rootCommand.Execute(); err != nil {
 		os.Exit(1)

@@ -18,7 +18,7 @@ import (
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
 
-func SetupGenCommand() *cobra.Command {
+func GenCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gen",
 		Short: "Run generate commmit",
