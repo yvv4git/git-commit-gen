@@ -1,8 +1,11 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -133,6 +136,19 @@ func (g *Git) UpdateFirstCommit(ctx context.Context, params *ports.UpdateFirstCo
 		return &ports.UpdateFirstCommitResult{}, nil
 	}
 
+	if commitSigningEnabled() {
+		return g.updateFirstCommitWithGit(commits, headRef, params)
+	}
+
+	return g.updateFirstCommitWithGoGit(repo, commits, headRef, params)
+}
+
+func (g *Git) updateFirstCommitWithGoGit(
+	repo *git.Repository,
+	commits []*plumbingobject.Commit,
+	headRef *plumbing.Reference,
+	params *ports.UpdateFirstCommitParams,
+) (*ports.UpdateFirstCommitResult, error) {
 	var prevHash plumbing.Hash
 	for i, c := range commits {
 		msg := c.Message
@@ -174,4 +190,61 @@ func (g *Git) UpdateFirstCommit(ctx context.Context, params *ports.UpdateFirstCo
 	}
 
 	return &ports.UpdateFirstCommitResult{}, nil
+}
+
+func (g *Git) updateFirstCommitWithGit(
+	commits []*plumbingobject.Commit,
+	headRef *plumbing.Reference,
+	params *ports.UpdateFirstCommitParams,
+) (*ports.UpdateFirstCommitResult, error) {
+	var prevHash string
+	for i, c := range commits {
+		msg := c.Message
+		if i == 0 {
+			msg = params.CommitMessage
+		}
+
+		args := []string{"commit-tree", "-S", c.TreeHash.String()}
+		if i == 0 {
+			for _, ph := range c.ParentHashes {
+				args = append(args, "-p", ph.String())
+			}
+		} else {
+			args = append(args, "-p", prevHash)
+		}
+
+		cmd := exec.Command("git", args...)
+		cmd.Stdin = strings.NewReader(msg)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("git commit-tree: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))
+		}
+
+		prevHash = strings.TrimSpace(stdout.String())
+	}
+
+	cmd := exec.Command("git", "update-ref", headRef.Name().String(), prevHash)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("git update-ref: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))
+	}
+
+	return &ports.UpdateFirstCommitResult{}, nil
+}
+
+// commitSigningEnabled returns true if commit.gpgsign is true in git config.
+func commitSigningEnabled() bool {
+	cmd := exec.Command("git", "config", "--get", "commit.gpgsign")
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(stdout.String()) == "true"
 }
