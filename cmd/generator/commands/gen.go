@@ -16,6 +16,7 @@ import (
 	"github.com/yvv4git/git-commit-gen/internal/core"
 	"github.com/yvv4git/git-commit-gen/internal/infra"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
+	"go.uber.org/zap"
 )
 
 func GenCommand() *cobra.Command {
@@ -57,6 +58,9 @@ func gen(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("setup logger: %w", err)
 	}
+
+	log.Info("Config", zap.String("path", cfgPath))
+	log.Info("Config", zap.String("rules file", cfg.Gen.RulesFile))
 
 	gitClient := git.New()
 
