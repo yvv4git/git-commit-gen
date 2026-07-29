@@ -17,6 +17,18 @@ Generate git commit messages automatically using an LLM.
 go install github.com/yvv4git/git-commit-gen@latest
 ```
 
+Or build from source:
+
+```bash
+go install .
+```
+
+Or build to a specific path:
+
+```bash
+go build -o ~/go/bin/git-commit-gen .
+```
+
 After installation, create default config files:
 
 ```bash
