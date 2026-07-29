@@ -9,8 +9,8 @@ const (
 
 type Proxy struct {
 	Enable bool      `toml:"enable"`
-	Typ    TypeProxy `toml:"type" env:"PROXY_TYPE"`
-	Addr   string    `toml:"addr" env:"PROXY_ADDR"`
-	Login  string    `toml:"login" env:"PROXY_LOGIN"`
-	Passw  string    `toml:"passw" env:"PROXY_PASSW"`
+	Typ    TypeProxy `toml:"type" env:"GIT_GEN_PROXY_TYPE"`
+	Addr   string    `toml:"addr" env:"GIT_GEN_PROXY_ADDR"`
+	Login  string    `toml:"login" env:"GIT_GEN_PROXY_LOGIN"`
+	Passw  string    `toml:"passw" env:"GIT_GEN_PROXY_PASSW"`
 }

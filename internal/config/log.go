@@ -1,5 +1,5 @@
 package config
 
 type Log struct {
-	Level string `toml:"level" env:"LOG_LEVEL"`
+	Level string `toml:"level"`
 }

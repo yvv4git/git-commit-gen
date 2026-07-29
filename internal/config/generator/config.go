@@ -11,7 +11,7 @@ type Config struct {
 }
 
 type Generator struct {
-	BaseBranch string `toml:"baseBranch"`
+	BaseBranch string `toml:"baseBranch" env:"GIT_GEN_BASE_BRANCH"`
 	RulesFile  string `toml:"rulesFile"`
 }
 

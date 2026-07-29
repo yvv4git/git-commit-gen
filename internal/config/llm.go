@@ -13,7 +13,7 @@ type LLM struct {
 }
 
 type OpenAI struct {
-	API   string `toml:"api" env:"OPENAI_API"`
-	Token string `toml:"token" env:"OPENAI_TOKEN"`
-	Model string `toml:"model" env:"OPENAI_MODEL"`
+	API   string `toml:"api" env:"GIT_GEN_OPENAI_API"`
+	Token string `toml:"token" env:"GIT_GEN_OPENAI_TOKEN"`
+	Model string `toml:"model" env:"GIT_GEN_OPENAI_MODEL"`
 }
