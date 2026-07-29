@@ -9,7 +9,6 @@
 - First line format: "TASK-{number}: ServiceName. Brief description"
 - Leave a blank line
 - Add a link to the task (if available)
-- Leave a blank line
 - Then list changes as a bulleted list (-)
 - Each item must start with a past tense verb (Added, Fixed, Implemented, etc.)
 - Write in English

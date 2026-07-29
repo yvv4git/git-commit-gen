@@ -83,7 +83,7 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context, params *ports.GenComm
 				continue
 			}
 
-			l.log.Info("calling tool", zap.String("tool", tc.FunctionCall.Name))
+			l.log.Info("Сalling tool", zap.String("tool", tc.FunctionCall.Name))
 
 			handler, ok := l.tools[tc.FunctionCall.Name]
 			if !ok {
