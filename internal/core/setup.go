@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/yvv4git/git-commit-gen/internal/ports"
@@ -32,7 +31,7 @@ func (s *Setup) Run(ctx context.Context, params *SetupParams) error {
 		return fmt.Errorf("get config dir: %w", err)
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := s.writer.MkdirAll(ctx, &ports.MkdirAllParams{DirPath: dir}); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 

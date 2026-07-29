@@ -24,6 +24,14 @@ func NewGenerator(baseBranch string, visual bool, git ports.Git, llm ports.LLM) 
 }
 
 func (g *Generator) Gen(ctx context.Context) error {
+	cur, err := g.git.CurrentBranch(ctx, &ports.CurrentBranchParams{})
+	if err != nil {
+		return fmt.Errorf("get current branch: %w", err)
+	}
+	if cur.Value == g.baseBranch {
+		return fmt.Errorf("cannot generate commit on base branch %q", g.baseBranch)
+	}
+
 	gitRes, err := g.git.LoadDiff(ctx, &ports.LoadDiffParams{
 		BaseBranch: g.baseBranch,
 	})
