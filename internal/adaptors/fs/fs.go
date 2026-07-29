@@ -27,6 +27,10 @@ func (f *FS) WriteFile(_ context.Context, params *ports.WriteFileParams) error {
 	return os.WriteFile(params.FilePath, []byte(params.Content), 0644)
 }
 
+func (f *FS) MkdirAll(_ context.Context, params *ports.MkdirAllParams) error {
+	return os.MkdirAll(params.DirPath, 0755)
+}
+
 func (f *FS) DefaultConfigDir(_ context.Context) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

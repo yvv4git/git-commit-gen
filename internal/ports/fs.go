@@ -19,12 +19,20 @@ type (
 	WriteFileResult struct{}
 )
 
+type (
+	MkdirAllParams struct {
+		DirPath string
+	}
+	MkdirAllResult struct{}
+)
+
 type FileReader interface {
 	ReadFile(ctx context.Context, params *ReadFileParams) (*ReadFileResult, error)
 }
 
 type FileWriter interface {
 	WriteFile(ctx context.Context, params *WriteFileParams) error
+	MkdirAll(ctx context.Context, params *MkdirAllParams) error
 }
 
 type ConfigPath interface {
