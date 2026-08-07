@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
@@ -117,5 +118,5 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context, params *ports.GenComm
 		return nil, fmt.Errorf("%w", domain.ErrNoResponseChoices)
 	}
 
-	return &ports.GenCommitDescriptionResult{Value: resp.Choices[0].Content}, nil
+	return &ports.GenCommitDescriptionResult{Value: strings.TrimSpace(resp.Choices[0].Content)}, nil
 }
