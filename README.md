@@ -45,28 +45,33 @@ Run inside a git repository:
 git-commit-gen gen
 ```
 
-If you want to see message in stdout:
-
-```bash
-git-commit-gen gen
-```
-
 To preview the generated message before applying:
 
 ```bash
 git-commit-gen gen -v
 ```
 
+To use a specific LLM provider defined in the config:
+
+```bash
+git-commit-gen gen -p secondary
+```
+
+If `-p` is omitted, the first provider from the `[[llms]]` list is used.
+
 ## Configuration
 
-Create a TOML config file (see configs/generator.example.toml):
+Create a TOML config file (see config.example.toml):
 
 - **generator.baseBranch** -- branch to diff against (default: main)
 - **generator.rulesFile** -- path to rules.md with commit style rules
-- **llm.openai.api** -- OpenAI-compatible API URL
-- **llm.openai.token** -- API token
-- **llm.openai.model** -- model name (default: gpt-4o)
-- **llm.proxy** -- optional proxy settings (http or socks5)
+- **llms.name** -- provider name to select with `-p`
+- **llms.openai.api** -- OpenAI-compatible API URL
+- **llms.openai.token** -- API token
+- **llms.openai.model** -- model name (default: gpt-4o)
+- **llms.proxy** -- optional proxy settings (http or socks5)
+
+Multiple providers can be defined by repeating the `[[llms]]` block with a unique `name`.
 
 Environment variables (OPENAI_TOKEN, OPENAI_API, OPENAI_MODEL, PROXY_TYPE, etc.) can also be used.
 

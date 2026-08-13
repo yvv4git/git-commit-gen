@@ -6,14 +6,17 @@ const (
 	TypeClientLLMOpenAI = "open-ai"
 )
 
+type LLMs []LLM
+
 type LLM struct {
+	Name   string        `toml:"name"`
 	Typ    TypeClientLLM `toml:"type"`
 	Proxy  Proxy         `toml:"proxy"`
 	OpenAI OpenAI        `toml:"openai"`
 }
 
 type OpenAI struct {
-	API   string `toml:"api" env:"GIT_GEN_OPENAI_API"`
-	Token string `toml:"token" env:"GIT_GEN_OPENAI_TOKEN"`
-	Model string `toml:"model" env:"GIT_GEN_OPENAI_MODEL"`
+	API   string `toml:"api"`
+	Token string `toml:"token"`
+	Model string `toml:"model"`
 }

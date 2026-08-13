@@ -25,12 +25,15 @@ func GenCommand() *cobra.Command {
 		Short: "Run generate commmit",
 		Long: `Start commit generate.
 
-Example:
-  git-commit-gen --config /path/to/config.toml`,
+Examples:
+  git-commit-gen --config /path/to/config.toml
+  git-commit-gen --config /path/to/config.toml --provider secondary
+  git-commit-gen -c /path/to/config.toml -p secondary`,
 		RunE: gen,
 	}
 
 	cmd.Flags().BoolP("visual", "v", false, "print generated commit message")
+	cmd.Flags().StringP("provider", "p", "", "LLM provider name")
 
 	return cmd
 }
@@ -46,9 +49,19 @@ func gen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get visual flag: %w", err)
 	}
 
+	provider, err := cmd.Flags().GetString("provider")
+	if err != nil {
+		return fmt.Errorf("get provider flag: %w", err)
+	}
+
 	var cfg generator.Config
 	if err := config.Load(cfgPath, &cfg); err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	llmCfg, err := selectLLMProvider(cfg.LLMs, provider)
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -61,10 +74,11 @@ func gen(cmd *cobra.Command, args []string) error {
 
 	log.Info("Config", zap.String("path", cfgPath))
 	log.Info("Config", zap.String("rules file", cfg.Gen.RulesFile))
+	log.Info("LLM provider", zap.String("name", llmCfg.Name))
 
 	gitClient := git.New()
 
-	llmClient, err := infra.SetupOpenAIClient(cfg.LLM)
+	llmClient, err := infra.SetupOpenAIClient(llmCfg)
 	if err != nil {
 		return fmt.Errorf("setup llm client: %w", err)
 	}
@@ -80,4 +94,22 @@ func gen(cmd *cobra.Command, args []string) error {
 	gen := core.NewGenerator(cfg.Gen.BaseBranch, visual, gitClient, llmAdapter)
 
 	return gen.Gen(ctx)
+}
+
+func selectLLMProvider(llms config.LLMs, name string) (config.LLM, error) {
+	if len(llms) == 0 {
+		return config.LLM{}, fmt.Errorf("no LLM providers configured")
+	}
+
+	if name == "" {
+		return llms[0], nil
+	}
+
+	for _, llmCfg := range llms {
+		if llmCfg.Name == name {
+			return llmCfg, nil
+		}
+	}
+
+	return config.LLM{}, fmt.Errorf("LLM provider %q not found", name)
 }
