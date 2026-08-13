@@ -5,9 +5,9 @@ import (
 )
 
 type Config struct {
-	Log config.Log `toml:"log"`
-	Gen Generator  `toml:"generator"`
-	LLM config.LLM `toml:"llm"`
+	Log  config.Log  `toml:"log"`
+	Gen  Generator   `toml:"generator"`
+	LLMs config.LLMs `toml:"llms"`
 }
 
 type Generator struct {

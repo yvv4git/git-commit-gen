@@ -5,17 +5,24 @@ level = "info"
 baseBranch = "main"
 rulesFile = "rules.md"
 
-[llm]
+[[llms]]
+name = "default"
 type = "open-ai"
 
-[llm.proxy]
+[llms.proxy]
 enable = false
 type = "socks5"
 addr = "localhost:1080"
 login = ""
 passw = ""
 
-[llm.openai]
+[llms.openai]
 api = "https://api.openai.com/v1"
 token = ""
 model = "gpt-4o"
+
+# Add more providers by repeating the block with a unique name:
+# [[llms]]
+# name = "secondary"
+# type = "open-ai"
+# ...
