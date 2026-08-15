@@ -84,12 +84,12 @@ func gen(cmd *cobra.Command, args []string) error {
 	}
 
 	fsClient := fs.NewFS()
-	fileRes, err := fsClient.ReadFile(ctx, &ports.ReadFileParams{FilePath: cfg.Gen.RulesFile})
+	rulesFile, err := fsClient.ReadFile(ctx, &ports.ReadFileParams{FilePath: cfg.Gen.RulesFile})
 	if err != nil {
 		return fmt.Errorf("read rules file: %w", err)
 	}
 
-	llmAdapter := llm.NewOpenAI(log, llmClient, fileRes.Value, gitClient)
+	llmAdapter := llm.NewOpenAI(log, llmClient, rulesFile.Value, gitClient)
 
 	gen := core.NewGenerator(cfg.Gen.BaseBranch, visual, gitClient, llmAdapter)
 
