@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yvv4git/git-commit-gen/cmd"
+	"github.com/yvv4git/git-commit-gen/internal/adaptors/fs"
 )
 
 //go:embed config.example.toml
@@ -36,5 +37,5 @@ func defaultConfigPath() string {
 		return "config.toml"
 	}
 
-	return filepath.Join(home, ".config", "git_commit_gen", "config.toml")
+	return filepath.Join(home, fs.ConfigDirName, fs.ConfigAppDirName, fs.ConfigFileName)
 }

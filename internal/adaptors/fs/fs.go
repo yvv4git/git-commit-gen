@@ -8,14 +8,33 @@ import (
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
 
+const (
+	ConfigDirName    = ".config"
+	ConfigAppDirName = "git_commit_gen"
+	ConfigFileName   = "config.toml"
+)
+
 type FS struct{}
 
 func NewFS() *FS {
 	return &FS{}
 }
 
-func (f *FS) ReadFile(_ context.Context, params *ports.ReadFileParams) (*ports.ReadFileResult, error) {
-	data, err := os.ReadFile(params.FilePath)
+func (f *FS) ReadFile(ctx context.Context, params *ports.ReadFileParams) (*ports.ReadFileResult, error) {
+	path := params.FilePath
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			dir, err := f.DefaultConfigDir(ctx)
+			if err != nil {
+				return nil, err
+			}
+			path = filepath.Join(dir, ConfigFileName)
+		} else {
+			return nil, err
+		}
+	}
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -37,5 +56,5 @@ func (f *FS) DefaultConfigDir(_ context.Context) (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(home, ".config", "git_commit_gen"), nil
+	return filepath.Join(home, ConfigDirName, ConfigAppDirName), nil
 }
