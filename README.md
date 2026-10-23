@@ -70,6 +70,9 @@ Create a TOML config file (see config.example.toml):
 - **llms.openai.token** -- API token
 - **llms.openai.model** -- model name (default: gpt-4o)
 - **llms.proxy** -- optional proxy settings (http or socks5)
+- **llms.retry.retries** -- number of retries after the first failed request (default: 3)
+- **llms.retry.initInterval** -- initial backoff interval (default: 500ms)
+- **llms.retry.maxInterval** -- maximum backoff interval (default: 10s)
 
 Multiple providers can be defined by repeating the `[[llms]]` block with a unique `name`.
 

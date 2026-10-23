@@ -89,7 +89,17 @@ func gen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read rules file: %w", err)
 	}
 
-	llmAdapter := llm.NewOpenAI(log, llmClient, rulesFile.Value, gitClient)
+	llmAdapter := llm.NewOpenAI(
+		log,
+		llmClient,
+		rulesFile.Value,
+		gitClient,
+		llm.RetrySettings{
+			Retries:      llmCfg.Retry.Retries,
+			InitInterval: llmCfg.Retry.InitInterval,
+			MaxInterval:  llmCfg.Retry.MaxInterval,
+		},
+	)
 
 	gen := core.NewGenerator(cfg.Gen.BaseBranch, visual, gitClient, llmAdapter)
 

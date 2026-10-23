@@ -21,6 +21,11 @@ api = "https://api.openai.com/v1"
 token = ""
 model = "gpt-4o"
 
+[llms.retry]
+retries = 3
+initInterval = "500ms"
+maxInterval = "10s"
+
 # Add more providers by repeating the block with a unique name:
 # [[llms]]
 # name = "secondary"
