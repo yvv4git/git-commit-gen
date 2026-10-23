@@ -94,10 +94,13 @@ func gen(cmd *cobra.Command, args []string) error {
 		llmClient,
 		rulesFile.Value,
 		gitClient,
-		llm.RetrySettings{
-			Retries:      llmCfg.Retry.Retries,
-			InitInterval: llmCfg.Retry.InitInterval,
-			MaxInterval:  llmCfg.Retry.MaxInterval,
+		llm.Settings{
+			BaseBranch: cfg.Gen.BaseBranch,
+			Retry: llm.RetrySettings{
+				Retries:      llmCfg.Retry.Retries,
+				InitInterval: llmCfg.Retry.InitInterval,
+				MaxInterval:  llmCfg.Retry.MaxInterval,
+			},
 		},
 	)
 

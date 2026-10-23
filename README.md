@@ -6,10 +6,12 @@ Generate git commit messages automatically using an LLM.
 
 ## How it works
 
-- The tool looks at the diff between your current branch and the base branch (default: main)
-- It sends the diff to an OpenAI-compatible LLM API
-- The LLM generates a commit message based on the diff and your rules.md file
-- The commit message is printed to stdout
+- The tool starts an LLM agent for the current branch
+- The agent has three tools: `GetCurrentBranch`, `LoadDiff`, and `UpdateFirstCommit`
+- `LoadDiff` returns the diff between the current branch and the base branch (default: main)
+- The agent generates a commit message based on the diff and your rules.md file
+- `UpdateFirstCommit` applies the message to the first commit of the current branch
+- With `-v` the generated commit message is printed to stdout
 
 ## Installation
 
@@ -45,7 +47,7 @@ Run inside a git repository:
 git-commit-gen gen
 ```
 
-To preview the generated message before applying:
+To print the generated message:
 
 ```bash
 git-commit-gen gen -v

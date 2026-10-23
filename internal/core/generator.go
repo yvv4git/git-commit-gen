@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
 
@@ -24,40 +25,21 @@ func NewGenerator(baseBranch string, visual bool, git ports.Git, llm ports.LLM) 
 }
 
 func (g *Generator) Gen(ctx context.Context) error {
-	cur, err := g.git.CurrentBranch(ctx, &ports.CurrentBranchParams{})
+	current, err := g.git.CurrentBranch(ctx, &ports.CurrentBranchParams{})
 	if err != nil {
 		return fmt.Errorf("get current branch: %w", err)
 	}
-	if cur.Value == g.baseBranch {
-		return fmt.Errorf("cannot generate commit on base branch %q", g.baseBranch)
+	if current.Value == g.baseBranch {
+		return fmt.Errorf("%w: %q", domain.ErrOnBaseBranch, current.Value)
 	}
 
-	gitRes, err := g.git.LoadDiff(ctx, &ports.LoadDiffParams{
-		BaseBranch: g.baseBranch,
-	})
+	result, err := g.llm.GenCommitDescription(ctx)
 	if err != nil {
 		return err
 	}
-
-	genRes, err := g.llm.GenCommitDescription(ctx, &ports.GenCommitDescriptionParams{
-		Diff: gitRes.Diff,
-	})
-	if err != nil {
-		return err
-	}
-
-	msg := genRes.Value
 
 	if g.visual {
-		fmt.Println(msg)
-	}
-
-	_, err = g.git.UpdateFirstCommit(ctx, &ports.UpdateFirstCommitParams{
-		CommitMessage: msg,
-		BaseBranch:    g.baseBranch,
-	})
-	if err != nil {
-		return err
+		fmt.Println(result.Value)
 	}
 
 	return nil
