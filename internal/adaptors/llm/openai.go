@@ -4,37 +4,53 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
+	"github.com/yvv4git/git-commit-gen/pkg/retry"
 	"go.uber.org/zap"
 )
 
 type toolHandler func(ctx context.Context, args string) (string, error)
+
+type RetrySettings struct {
+	Retries      uint64
+	InitInterval time.Duration
+	MaxInterval  time.Duration
+}
 
 type OpenAI struct {
 	log    *zap.Logger
 	client *openai.LLM
 	rules  string
 	git    ports.Git
+	retry  RetrySettings
 	tools  map[string]toolHandler
 }
 
-func NewOpenAI(log *zap.Logger, client *openai.LLM, rules string, git ports.Git) *OpenAI {
-	entiy := &OpenAI{
+func NewOpenAI(
+	log *zap.Logger,
+	client *openai.LLM,
+	rules string,
+	git ports.Git,
+	retrySettings RetrySettings,
+) *OpenAI {
+	entity := &OpenAI{
 		log:    log,
 		client: client,
 		rules:  rules,
 		git:    git,
+		retry:  retrySettings,
 	}
 
-	entiy.tools = map[string]toolHandler{
-		"get_current_branch": entiy.getCurrentBranch,
+	entity.tools = map[string]toolHandler{
+		"get_current_branch": entity.getCurrentBranch,
 	}
 
-	return entiy
+	return entity
 }
 
 func (l *OpenAI) getCurrentBranch(ctx context.Context, _ string) (string, error) {
@@ -59,9 +75,9 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context, params *ports.GenComm
 
 	tools := Tools()
 
-	resp, err := l.client.GenerateContent(ctx, messages, llms.WithTools(tools))
+	resp, err := l.generateContent(ctx, messages, tools)
 	if err != nil {
-		return nil, fmt.Errorf("generate content: %w", err)
+		return nil, err
 	}
 
 	for len(resp.Choices) > 0 && len(resp.Choices[0].ToolCalls) > 0 {
@@ -108,9 +124,9 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context, params *ports.GenComm
 			})
 		}
 
-		resp, err = l.client.GenerateContent(ctx, messages, llms.WithTools(tools))
+		resp, err = l.generateContent(ctx, messages, tools)
 		if err != nil {
-			return nil, fmt.Errorf("generate content: %w", err)
+			return nil, err
 		}
 	}
 
@@ -119,4 +135,31 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context, params *ports.GenComm
 	}
 
 	return &ports.GenCommitDescriptionResult{Value: strings.TrimSpace(resp.Choices[0].Content)}, nil
+}
+
+func (l *OpenAI) generateContent(ctx context.Context, messages []llms.MessageContent, tools []llms.Tool) (*llms.ContentResponse, error) {
+	attempt := 0
+
+	resp, err := retry.RetryWithResult(ctx, func() (*llms.ContentResponse, error) {
+		attempt++
+
+		resp, err := l.client.GenerateContent(ctx, messages, llms.WithTools(tools))
+		if err != nil {
+			l.log.Warn("Generate content",
+				zap.Int("attempt", attempt),
+				zap.Uint64("max_attempts", l.retry.Retries+1),
+				zap.Error(err))
+		}
+
+		return resp, err
+	},
+		retry.WithRetries(l.retry.Retries),
+		retry.WithInitInterval(l.retry.InitInterval),
+		retry.WithMaxInterval(l.retry.MaxInterval),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("generate content: %w", err)
+	}
+
+	return resp, nil
 }
