@@ -10,6 +10,7 @@ const (
 	toolGetCurrentBranch  = "GetCurrentBranch"
 	toolLoadDiff          = "LoadDiff"
 	toolUpdateFirstCommit = "UpdateFirstCommit"
+	toolVerifyFirstCommit = "VerifyFirstCommit"
 )
 
 type updateFirstCommitArgs struct {
@@ -49,6 +50,14 @@ func Tools() []llms.Tool {
 					},
 					"required": ["commit_message"]
 				}`),
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        toolVerifyFirstCommit,
+				Description: "Verify that the first commit on the current branch has the generated commit message.",
+				Parameters:  json.RawMessage(`{"type": "object", "properties": {}}`),
 			},
 		},
 	}

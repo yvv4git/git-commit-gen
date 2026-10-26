@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tmc/langchaingo/llms"
@@ -11,6 +12,12 @@ import (
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 	"github.com/yvv4git/git-commit-gen/pkg/retry"
 	"go.uber.org/zap"
+)
+
+const (
+	maxAgentTurns        = 12
+	maxUpdateReminders   = 2
+	updateCommitReminder = "You have not updated the first commit yet. Do not reply with the commit message. Call UpdateFirstCommit now with the generated commit_message."
 )
 
 type contentGenerator interface {
@@ -40,6 +47,7 @@ type OpenAI struct {
 type agentRun struct {
 	messages []llms.MessageContent
 	updated  bool
+	verified bool
 	message  string
 }
 
@@ -73,8 +81,9 @@ func NewOpenAI(
 func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDescriptionResult, error) {
 	run := l.newAgentRun()
 	tools := Tools()
+	reminders := 0
 
-	for {
+	for turn := 0; turn < maxAgentTurns; turn++ {
 		resp, err := l.generateContent(ctx, run.messages, tools)
 		if err != nil {
 			return nil, err
@@ -86,13 +95,24 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 		}
 
 		if len(choice.ToolCalls) == 0 {
-			return run.result()
+			if !run.updated && reminders < maxUpdateReminders {
+				reminders++
+
+				run.appendAssistant(choice)
+				run.appendReminder(updateCommitReminder)
+
+				continue
+			}
+
+			return l.result(ctx, run)
 		}
 
 		if err := l.executeToolCalls(ctx, run, choice); err != nil {
 			return nil, err
 		}
 	}
+
+	return l.result(ctx, run)
 }
 
 func (l *OpenAI) newAgentRun() *agentRun {
@@ -138,6 +158,8 @@ func (l *OpenAI) executeToolCall(ctx context.Context, run *agentRun, call llms.T
 		return l.loadDiff(ctx)
 	case toolUpdateFirstCommit:
 		return l.updateFirstCommit(ctx, run, call.FunctionCall.Arguments)
+	case toolVerifyFirstCommit:
+		return l.verifyFirstCommit(ctx, run)
 	default:
 		return "", fmt.Errorf("%w: %s", domain.ErrUnknownTool, call.FunctionCall.Name)
 	}
@@ -205,6 +227,35 @@ func (l *OpenAI) applyFirstCommit(ctx context.Context, message string) error {
 	if err != nil {
 		return fmt.Errorf("update first commit: %w", err)
 	}
+
+	return nil
+}
+
+func (l *OpenAI) verifyFirstCommit(ctx context.Context, run *agentRun) (string, error) {
+	if err := l.checkFirstCommit(ctx, run); err != nil {
+		return "", err
+	}
+
+	return "First commit verified", nil
+}
+
+func (l *OpenAI) checkFirstCommit(ctx context.Context, run *agentRun) error {
+	if !run.updated {
+		return domain.ErrCommitNotUpdated
+	}
+
+	res, err := l.git.FirstCommitMessage(ctx, &ports.FirstCommitMessageParams{BaseBranch: l.baseBranch})
+	if err != nil {
+		return fmt.Errorf("load first commit message: %w", err)
+	}
+
+	got := strings.TrimSpace(res.CommitMessage)
+	want := strings.TrimSpace(run.message)
+	if got != want {
+		return fmt.Errorf("%w: got %q, want %q", domain.ErrFirstCommitMismatch, got, want)
+	}
+
+	run.verified = true
 
 	return nil
 }
@@ -282,12 +333,22 @@ func (r *agentRun) appendToolResponse(call llms.ToolCall, content string) {
 	})
 }
 
-func (r *agentRun) result() (*ports.GenCommitDescriptionResult, error) {
-	if !r.updated {
+func (r *agentRun) appendReminder(content string) {
+	r.messages = append(r.messages, llms.TextParts(llms.ChatMessageTypeHuman, content))
+}
+
+func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDescriptionResult, error) {
+	if !run.updated {
 		return nil, domain.ErrCommitNotUpdated
 	}
 
-	return &ports.GenCommitDescriptionResult{Value: r.message}, nil
+	if !run.verified {
+		if err := l.checkFirstCommit(ctx, run); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ports.GenCommitDescriptionResult{Value: run.message}, nil
 }
 
 func (a *updateFirstCommitArgs) parse(arguments string) error {

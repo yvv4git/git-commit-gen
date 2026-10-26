@@ -187,6 +187,57 @@ func TestUpdateFirstCommitTwoBranchCommits(t *testing.T) {
 	require.Equal(t, "2", repo.run("rev-list", "--count", testBaseBranch+".."+testWorkBranch))
 }
 
+func TestFirstCommitMessageSingleBranchCommit(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", "two")
+	repo.commit("Feature commit")
+
+	client := New()
+
+	res, err := client.FirstCommitMessage(context.Background(), &ports.FirstCommitMessageParams{
+		BaseBranch: testBaseBranch,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Feature commit", strings.TrimSpace(res.CommitMessage))
+}
+
+func TestFirstCommitMessageTwoBranchCommits(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", "two")
+	repo.commit("First feature commit")
+	repo.writeFile("c.txt", "three")
+	repo.commit("Second feature commit")
+
+	client := New()
+
+	res, err := client.FirstCommitMessage(context.Background(), &ports.FirstCommitMessageParams{
+		BaseBranch: testBaseBranch,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "First feature commit", strings.TrimSpace(res.CommitMessage))
+}
+
+func TestFirstCommitMessageNoBranchCommits(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+
+	client := New()
+
+	_, err := client.FirstCommitMessage(context.Background(), &ports.FirstCommitMessageParams{
+		BaseBranch: testBaseBranch,
+	})
+
+	require.ErrorIs(t, err, domain.ErrNoCommitsToUpdate)
+}
+
 func TestLoadDiffNoBranchCommits(t *testing.T) {
 	repo := newTestRepo(t)
 	repo.writeFile("a.txt", "one")

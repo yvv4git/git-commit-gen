@@ -82,6 +82,25 @@ func (g *Git) UpdateFirstCommit(_ context.Context, params *ports.UpdateFirstComm
 	return g.updateFirstCommitWithGoGit(repo, commits, headRef, params)
 }
 
+func (g *Git) FirstCommitMessage(_ context.Context, params *ports.FirstCommitMessageParams) (*ports.FirstCommitMessageResult, error) {
+	repo, err := git.PlainOpen(".")
+	if err != nil {
+		return nil, fmt.Errorf("open repo: %w", err)
+	}
+
+	_, headCommit, mergeBase, err := g.resolveHistory(repo, params.BaseBranch)
+	if err != nil {
+		return nil, err
+	}
+
+	commits, err := g.branchCommits(headCommit, mergeBase)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ports.FirstCommitMessageResult{CommitMessage: commits[0].Message}, nil
+}
+
 func (*Git) resolveHistory(repo *git.Repository, baseBranch string) (*plumbing.Reference, *plumbingobject.Commit, *plumbingobject.Commit, error) {
 	headRef, err := repo.Head()
 	if err != nil {
