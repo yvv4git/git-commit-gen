@@ -28,8 +28,18 @@ type (
 	UpdateFirstCommitResult struct{}
 )
 
+type (
+	FirstCommitMessageParams struct {
+		BaseBranch string
+	}
+	FirstCommitMessageResult struct {
+		CommitMessage string
+	}
+)
+
 type Git interface {
 	LoadDiff(ctx context.Context, params *LoadDiffParams) (*LoadDiffResult, error)
 	CurrentBranch(ctx context.Context, params *CurrentBranchParams) (*CurrentBranchResult, error)
 	UpdateFirstCommit(ctx context.Context, params *UpdateFirstCommitParams) (*UpdateFirstCommitResult, error)
+	FirstCommitMessage(ctx context.Context, params *FirstCommitMessageParams) (*FirstCommitMessageResult, error)
 }

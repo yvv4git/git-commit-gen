@@ -24,13 +24,16 @@ const (
 var errGenerate = errors.New("generate failed")
 
 type fakeGit struct {
-	branch     string
-	diff       string
-	branchErr  error
-	diffErr    error
-	updateErr  error
-	diffParams *ports.LoadDiffParams
-	updates    []*ports.UpdateFirstCommitParams
+	branch             string
+	diff               string
+	firstCommitMessage string
+	branchErr          error
+	diffErr            error
+	updateErr          error
+	firstCommitErr     error
+	keepFirstCommit    bool
+	diffParams         *ports.LoadDiffParams
+	updates            []*ports.UpdateFirstCommitParams
 }
 
 func (f *fakeGit) CurrentBranch(_ context.Context, _ *ports.CurrentBranchParams) (*ports.CurrentBranchResult, error) {
@@ -56,8 +59,19 @@ func (f *fakeGit) UpdateFirstCommit(_ context.Context, params *ports.UpdateFirst
 	}
 
 	f.updates = append(f.updates, params)
+	if !f.keepFirstCommit {
+		f.firstCommitMessage = params.CommitMessage
+	}
 
 	return &ports.UpdateFirstCommitResult{}, nil
+}
+
+func (f *fakeGit) FirstCommitMessage(_ context.Context, _ *ports.FirstCommitMessageParams) (*ports.FirstCommitMessageResult, error) {
+	if f.firstCommitErr != nil {
+		return nil, f.firstCommitErr
+	}
+
+	return &ports.FirstCommitMessageResult{CommitMessage: f.firstCommitMessage}, nil
 }
 
 type fakeGenerator struct {
@@ -124,12 +138,17 @@ func newUpdateCall() llms.ToolCall {
 	return newToolCall(toolUpdateFirstCommit, `{"commit_message":"`+testCommitMessage+`"}`)
 }
 
+func newVerifyCall() llms.ToolCall {
+	return newToolCall(toolVerifyFirstCommit, "{}")
+}
+
 func TestGenCommitDescriptionFullCycle(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch, diff: testDiff}
 	generator := &fakeGenerator{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall(toolGetCurrentBranch, "{}")),
 		newToolResponse(newToolCall(toolLoadDiff, "{}")),
 		newToolResponse(newUpdateCall()),
+		newToolResponse(newVerifyCall()),
 		newTextResponse("Done"),
 	}}
 
@@ -174,12 +193,72 @@ func TestGenCommitDescriptionWithoutUpdate(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
 	generator := &fakeGenerator{responses: []*llms.ContentResponse{
 		newTextResponse("Nothing to update"),
+		newTextResponse("Nothing to update"),
+		newTextResponse("Nothing to update"),
 	}}
 
 	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrCommitNotUpdated)
 	assert.Empty(t, gitClient.updates)
+}
+
+func TestGenCommitDescriptionRemindsToUpdate(t *testing.T) {
+	gitClient := &fakeGit{branch: testWorkBranch}
+	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+		newTextResponse(testCommitMessage),
+		newToolResponse(newUpdateCall()),
+		newTextResponse("Done"),
+	}}
+
+	result, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, testCommitMessage, result.Value)
+	require.Len(t, gitClient.updates, 1)
+}
+
+func TestGenCommitDescriptionAutoVerify(t *testing.T) {
+	gitClient := &fakeGit{branch: testWorkBranch}
+	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+		newToolResponse(newUpdateCall()),
+		newTextResponse("Done"),
+	}}
+
+	result, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, testCommitMessage, result.Value)
+	require.Len(t, gitClient.updates, 1)
+}
+
+func TestGenCommitDescriptionVerifyBeforeUpdate(t *testing.T) {
+	gitClient := &fakeGit{branch: testWorkBranch}
+	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+		newToolResponse(newVerifyCall()),
+	}}
+
+	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+
+	require.ErrorIs(t, err, domain.ErrCommitNotUpdated)
+	assert.Empty(t, gitClient.updates)
+}
+
+func TestGenCommitDescriptionVerifyMismatch(t *testing.T) {
+	gitClient := &fakeGit{
+		branch:             testWorkBranch,
+		firstCommitMessage: "Old message",
+		keepFirstCommit:    true,
+	}
+	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+		newToolResponse(newUpdateCall()),
+		newToolResponse(newVerifyCall()),
+	}}
+
+	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+
+	require.ErrorIs(t, err, domain.ErrFirstCommitMismatch)
+	require.Len(t, gitClient.updates, 1)
 }
 
 func TestGenCommitDescriptionRepeatedUpdate(t *testing.T) {

@@ -39,6 +39,8 @@ Examples:
 }
 
 func gen(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
+
 	cfgPath, err := cmd.Flags().GetString("config")
 	if err != nil {
 		return err

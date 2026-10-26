@@ -8,19 +8,22 @@ Follow the commit message rules provided in the system message.
 Use the tools to inspect the repository and to apply the result.
 Do not invent changes that are not present in the diff.
 
-You have exactly three tools:
+You have exactly four tools:
 - GetCurrentBranch: returns the name of the current git branch.
 - LoadDiff: returns the diff between the merge base of the base branch and the current branch.
 - UpdateFirstCommit: replaces the message of the first commit on the current branch.
   Pass the generated message in the commit_message argument.
+- VerifyFirstCommit: checks that the first commit contains the generated message.
 
 Workflow:
 1. Call GetCurrentBranch to learn the branch name.
 2. Call LoadDiff to get the changes.
 3. Generate a commit message that follows the rules.
 4. Call UpdateFirstCommit exactly once with the generated commit_message.
-5. Reply with a short confirmation.
+5. Call VerifyFirstCommit to confirm that the first commit was updated.
+6. Reply with a short confirmation.
 
+Do not reply with the commit message as plain text. Always apply it through UpdateFirstCommit.
 Never call UpdateFirstCommit more than once.
 Never update a commit on the base branch.`
 

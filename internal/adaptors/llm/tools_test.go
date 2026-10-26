@@ -19,7 +19,7 @@ func requireJSON(t *testing.T, want string, value any) {
 func TestTools(t *testing.T) {
 	tools := Tools()
 
-	require.Len(t, tools, 3)
+	require.Len(t, tools, 4)
 
 	names := make([]string, 0, len(tools))
 	for _, tool := range tools {
@@ -27,7 +27,7 @@ func TestTools(t *testing.T) {
 		names = append(names, tool.Function.Name)
 	}
 
-	assert.Equal(t, []string{toolGetCurrentBranch, toolLoadDiff, toolUpdateFirstCommit}, names)
+	assert.Equal(t, []string{toolGetCurrentBranch, toolLoadDiff, toolUpdateFirstCommit, toolVerifyFirstCommit}, names)
 	requireJSON(t, `{"type": "object", "properties": {}}`, tools[0].Function.Parameters)
 	requireJSON(t, `{"type": "object", "properties": {}}`, tools[1].Function.Parameters)
 	requireJSON(t, `{
@@ -40,4 +40,5 @@ func TestTools(t *testing.T) {
 		},
 		"required": ["commit_message"]
 	}`, tools[2].Function.Parameters)
+	requireJSON(t, `{"type": "object", "properties": {}}`, tools[3].Function.Parameters)
 }

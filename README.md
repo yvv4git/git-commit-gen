@@ -7,10 +7,11 @@ Generate git commit messages automatically using an LLM.
 ## How it works
 
 - The tool starts an LLM agent for the current branch
-- The agent has three tools: `GetCurrentBranch`, `LoadDiff`, and `UpdateFirstCommit`
+- The agent has four tools: `GetCurrentBranch`, `LoadDiff`, `UpdateFirstCommit`, and `VerifyFirstCommit`
 - `LoadDiff` returns the diff between the current branch and the base branch (default: main)
 - The agent generates a commit message based on the diff and your rules.md file
 - `UpdateFirstCommit` applies the message to the first commit of the current branch
+- `VerifyFirstCommit` confirms that the first commit contains the generated message
 - With `-v` the generated commit message is printed to stdout
 
 ## Installation

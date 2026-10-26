@@ -15,6 +15,8 @@ func SetupCommand(configContent, rulesContent string) *cobra.Command {
 Example:
   git-commit-gen setup`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cmd.SilenceUsage = true
+
 			var f fs.FS
 			setup := core.NewSetup(&f, &f)
 

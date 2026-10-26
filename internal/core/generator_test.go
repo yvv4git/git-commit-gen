@@ -37,6 +37,10 @@ func (*fakeGit) UpdateFirstCommit(_ context.Context, _ *ports.UpdateFirstCommitP
 	return &ports.UpdateFirstCommitResult{}, nil
 }
 
+func (*fakeGit) FirstCommitMessage(_ context.Context, _ *ports.FirstCommitMessageParams) (*ports.FirstCommitMessageResult, error) {
+	return &ports.FirstCommitMessageResult{}, nil
+}
+
 type fakeLLM struct {
 	result *ports.GenCommitDescriptionResult
 	err    error

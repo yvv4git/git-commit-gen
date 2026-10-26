@@ -2,7 +2,7 @@
 
 ## Main rules
 
-- Use the get_current_branch command to get the current branch name
+- Use the GetCurrentBranch tool to get the current branch name
 - Extract the task number from the branch name (e.g., from feature/TASK-123-something extract 123)
 - In the first line, specify the task number and a brief description of changes
 - The task number must be strictly in FEATURE-{number} format. The prefix TASK- is always fixed
