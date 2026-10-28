@@ -71,13 +71,17 @@ Create a TOML config file (see config.example.toml):
 - **llms.name** -- provider name to select with `-p`
 - **llms.openai.api** -- OpenAI-compatible API URL
 - **llms.openai.token** -- API token
-- **llms.openai.model** -- model name (default: gpt-4o)
+- **llms.openai.model** -- tool-calling model name (default: gpt-4o)
 - **llms.proxy** -- optional proxy settings (http or socks5)
 - **llms.retry.retries** -- number of retries after the first failed request (default: 3)
 - **llms.retry.initInterval** -- initial backoff interval (default: 500ms)
 - **llms.retry.maxInterval** -- maximum backoff interval (default: 10s)
 
 Multiple providers can be defined by repeating the `[[llms]]` block with a unique `name`.
+
+The model must support tool calling. For the OpenRouter free tier, use `model = "openrouter/free"`:
+the router selects an available free model automatically. Some free models are restricted to
+registered agent apps and return `403`, so a specific free model may stop working.
 
 Environment variables (OPENAI_TOKEN, OPENAI_API, OPENAI_MODEL, PROXY_TYPE, etc.) can also be used.
 

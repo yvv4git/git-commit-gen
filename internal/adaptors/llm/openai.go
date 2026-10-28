@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 	"github.com/yvv4git/git-commit-gen/pkg/retry"
@@ -19,10 +20,6 @@ const (
 	maxUpdateReminders   = 2
 	updateCommitReminder = "You have not updated the first commit yet. Do not reply with the commit message. Call UpdateFirstCommit now with the generated commit_message."
 )
-
-type contentGenerator interface {
-	GenerateContent(ctx context.Context, messages []llms.MessageContent, options ...llms.CallOption) (*llms.ContentResponse, error)
-}
 
 type RetrySettings struct {
 	Retries      uint64
@@ -37,7 +34,7 @@ type Settings struct {
 
 type OpenAI struct {
 	log        *zap.Logger
-	client     contentGenerator
+	client     *openai.LLM
 	rules      string
 	git        ports.Git
 	baseBranch string
@@ -54,7 +51,7 @@ type agentRun struct {
 type contentCall struct {
 	ctx      context.Context
 	log      *zap.Logger
-	client   contentGenerator
+	client   *openai.LLM
 	messages []llms.MessageContent
 	tools    []llms.Tool
 	retries  uint64
@@ -63,7 +60,7 @@ type contentCall struct {
 
 func NewOpenAI(
 	log *zap.Logger,
-	client contentGenerator,
+	client *openai.LLM,
 	rules string,
 	git ports.Git,
 	settings Settings,

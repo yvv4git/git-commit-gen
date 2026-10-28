@@ -80,7 +80,9 @@ func gen(cmd *cobra.Command, args []string) error {
 
 	gitClient := git.New()
 
-	llmClient, err := infra.SetupOpenAIClient(llmCfg)
+	llmLog := log.Named("LLM")
+
+	llmClient, err := infra.SetupLLMClient(llmCfg, llmLog)
 	if err != nil {
 		return fmt.Errorf("setup llm client: %w", err)
 	}
@@ -92,7 +94,7 @@ func gen(cmd *cobra.Command, args []string) error {
 	}
 
 	llmAdapter := llm.NewOpenAI(
-		log,
+		llmLog,
 		llmClient,
 		rulesFile.Value,
 		gitClient,
