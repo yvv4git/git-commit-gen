@@ -1,14 +1,19 @@
 package llm
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 	"go.uber.org/zap"
@@ -74,17 +79,43 @@ func (f *fakeGit) FirstCommitMessage(_ context.Context, _ *ports.FirstCommitMess
 	return &ports.FirstCommitMessageResult{CommitMessage: f.firstCommitMessage}, nil
 }
 
-type fakeGenerator struct {
+type fakeTransport struct {
 	responses []*llms.ContentResponse
 	err       error
 	calls     int
-	messages  []llms.MessageContent
 }
 
-func (f *fakeGenerator) GenerateContent(_ context.Context, messages []llms.MessageContent, _ ...llms.CallOption) (*llms.ContentResponse, error) {
-	f.calls++
-	f.messages = messages
+type apiResponse struct {
+	ID      string      `json:"id"`
+	Object  string      `json:"object"`
+	Model   string      `json:"model"`
+	Choices []apiChoice `json:"choices"`
+}
 
+type apiChoice struct {
+	Index   int        `json:"index"`
+	Message apiMessage `json:"message"`
+}
+
+type apiMessage struct {
+	Role      string        `json:"role"`
+	Content   string        `json:"content,omitempty"`
+	ToolCalls []apiToolCall `json:"tool_calls,omitempty"`
+}
+
+type apiToolCall struct {
+	ID       string      `json:"id"`
+	Type     string      `json:"type"`
+	Function apiFunction `json:"function"`
+}
+
+type apiFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+func (f *fakeTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
+	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -94,13 +125,52 @@ func (f *fakeGenerator) GenerateContent(_ context.Context, messages []llms.Messa
 		return nil, errors.New("unexpected generate content call")
 	}
 
-	return f.responses[index], nil
+	body, err := f.responseBody(index)
+	if err != nil {
+		return nil, err
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(body)),
+		Header:     make(http.Header),
+	}, nil
 }
 
-func newTestAdapter(gitClient ports.Git, generator contentGenerator, rules string) *OpenAI {
+func (f *fakeTransport) responseBody(index int) ([]byte, error) {
+	source := f.responses[index]
+	response := apiResponse{ID: "test", Object: "chat.completion", Model: "test"}
+
+	for _, choice := range source.Choices {
+		message := apiMessage{Role: "assistant", Content: choice.Content}
+		for _, call := range choice.ToolCalls {
+			message.ToolCalls = append(message.ToolCalls, apiToolCall{
+				ID:       call.ID,
+				Type:     "function",
+				Function: apiFunction{Name: call.FunctionCall.Name, Arguments: call.FunctionCall.Arguments},
+			})
+		}
+
+		response.Choices = append(response.Choices, apiChoice{Message: message})
+	}
+
+	return json.Marshal(response)
+}
+
+func newTestAdapter(t *testing.T, gitClient ports.Git, transport http.RoundTripper, rules string) *OpenAI {
+	t.Helper()
+
+	client, err := openai.New(
+		openai.WithBaseURL("http://test"),
+		openai.WithToken("token"),
+		openai.WithModel("test"),
+		openai.WithHTTPClient(&http.Client{Transport: transport}),
+	)
+	require.NoError(t, err)
+
 	return NewOpenAI(
 		zap.NewNop(),
-		generator,
+		client,
 		rules,
 		gitClient,
 		Settings{
@@ -144,7 +214,7 @@ func newVerifyCall() llms.ToolCall {
 
 func TestGenCommitDescriptionFullCycle(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch, diff: testDiff}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall(toolGetCurrentBranch, "{}")),
 		newToolResponse(newToolCall(toolLoadDiff, "{}")),
 		newToolResponse(newUpdateCall()),
@@ -152,7 +222,7 @@ func TestGenCommitDescriptionFullCycle(t *testing.T) {
 		newTextResponse("Done"),
 	}}
 
-	result, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	result, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -166,7 +236,7 @@ func TestGenCommitDescriptionFullCycle(t *testing.T) {
 func TestNewAgentRun(t *testing.T) {
 	const rules = "Use the TASK prefix."
 
-	run := newTestAdapter(&fakeGit{}, &fakeGenerator{}, rules).newAgentRun()
+	run := newTestAdapter(t, &fakeGit{}, &fakeTransport{}, rules).newAgentRun()
 
 	require.Len(t, run.messages, 2)
 	assert.Equal(t, llms.ChatMessageTypeSystem, run.messages[0].Role)
@@ -179,11 +249,11 @@ func TestNewAgentRun(t *testing.T) {
 
 func TestGenCommitDescriptionToolError(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch, diffErr: domain.ErrNoCommitsToUpdate}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall(toolLoadDiff, "{}")),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrNoCommitsToUpdate)
 	assert.Empty(t, gitClient.updates)
@@ -191,13 +261,13 @@ func TestGenCommitDescriptionToolError(t *testing.T) {
 
 func TestGenCommitDescriptionWithoutUpdate(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newTextResponse("Nothing to update"),
 		newTextResponse("Nothing to update"),
 		newTextResponse("Nothing to update"),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrCommitNotUpdated)
 	assert.Empty(t, gitClient.updates)
@@ -205,13 +275,13 @@ func TestGenCommitDescriptionWithoutUpdate(t *testing.T) {
 
 func TestGenCommitDescriptionRemindsToUpdate(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newTextResponse(testCommitMessage),
 		newToolResponse(newUpdateCall()),
 		newTextResponse("Done"),
 	}}
 
-	result, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	result, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.NoError(t, err)
 	assert.Equal(t, testCommitMessage, result.Value)
@@ -220,12 +290,12 @@ func TestGenCommitDescriptionRemindsToUpdate(t *testing.T) {
 
 func TestGenCommitDescriptionAutoVerify(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newUpdateCall()),
 		newTextResponse("Done"),
 	}}
 
-	result, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	result, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.NoError(t, err)
 	assert.Equal(t, testCommitMessage, result.Value)
@@ -234,11 +304,11 @@ func TestGenCommitDescriptionAutoVerify(t *testing.T) {
 
 func TestGenCommitDescriptionVerifyBeforeUpdate(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newVerifyCall()),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrCommitNotUpdated)
 	assert.Empty(t, gitClient.updates)
@@ -250,12 +320,12 @@ func TestGenCommitDescriptionVerifyMismatch(t *testing.T) {
 		firstCommitMessage: "Old message",
 		keepFirstCommit:    true,
 	}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newUpdateCall()),
 		newToolResponse(newVerifyCall()),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrFirstCommitMismatch)
 	require.Len(t, gitClient.updates, 1)
@@ -263,12 +333,12 @@ func TestGenCommitDescriptionVerifyMismatch(t *testing.T) {
 
 func TestGenCommitDescriptionRepeatedUpdate(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newUpdateCall()),
 		newToolResponse(newUpdateCall()),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrCommitAlreadyUpdated)
 	require.Len(t, gitClient.updates, 1)
@@ -276,11 +346,11 @@ func TestGenCommitDescriptionRepeatedUpdate(t *testing.T) {
 
 func TestGenCommitDescriptionOnBaseBranch(t *testing.T) {
 	gitClient := &fakeGit{branch: testBaseBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newUpdateCall()),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrOnBaseBranch)
 	assert.Empty(t, gitClient.updates)
@@ -288,11 +358,11 @@ func TestGenCommitDescriptionOnBaseBranch(t *testing.T) {
 
 func TestGenCommitDescriptionEmptyMessage(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall(toolUpdateFirstCommit, `{}`)),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrEmptyCommitMessage)
 	assert.Empty(t, gitClient.updates)
@@ -300,38 +370,38 @@ func TestGenCommitDescriptionEmptyMessage(t *testing.T) {
 
 func TestGenCommitDescriptionMalformedArguments(t *testing.T) {
 	gitClient := &fakeGit{branch: testWorkBranch}
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall(toolUpdateFirstCommit, "{")),
 	}}
 
-	_, err := newTestAdapter(gitClient, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.Error(t, err)
 	assert.Empty(t, gitClient.updates)
 }
 
 func TestGenCommitDescriptionUnknownTool(t *testing.T) {
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{
+	generator := &fakeTransport{responses: []*llms.ContentResponse{
 		newToolResponse(newToolCall("DeleteEverything", "{}")),
 	}}
 
-	_, err := newTestAdapter(&fakeGit{}, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, &fakeGit{}, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrUnknownTool)
 }
 
 func TestGenCommitDescriptionNoChoices(t *testing.T) {
-	generator := &fakeGenerator{responses: []*llms.ContentResponse{{}}}
+	generator := &fakeTransport{responses: []*llms.ContentResponse{{}}}
 
-	_, err := newTestAdapter(&fakeGit{}, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, &fakeGit{}, generator, "").GenCommitDescription(context.Background())
 
-	require.ErrorIs(t, err, domain.ErrNoResponseChoices)
+	require.EqualError(t, err, "generate content: empty response")
 }
 
 func TestGenCommitDescriptionGenerateError(t *testing.T) {
-	generator := &fakeGenerator{err: errGenerate}
+	generator := &fakeTransport{err: errGenerate}
 
-	_, err := newTestAdapter(&fakeGit{}, generator, "").GenCommitDescription(context.Background())
+	_, err := newTestAdapter(t, &fakeGit{}, generator, "").GenCommitDescription(context.Background())
 
-	require.ErrorIs(t, err, errGenerate)
+	require.EqualError(t, err, "generate content: network error: failed to reach API server")
 }

@@ -24,7 +24,7 @@ type modelResponse struct {
 	Model string `json:"model"`
 }
 
-func SetupOpenAIClient(cfg config.LLM, log *zap.Logger) (*openai.LLM, error) {
+func SetupLLMClient(cfg config.LLM, log *zap.Logger) (*openai.LLM, error) {
 	client, err := newHTTPClient(cfg.Proxy, log)
 	if err != nil {
 		return nil, fmt.Errorf("create http client: %w", err)

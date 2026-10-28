@@ -82,7 +82,7 @@ func gen(cmd *cobra.Command, args []string) error {
 
 	llmLog := log.Named("LLM")
 
-	llmClient, err := infra.SetupOpenAIClient(llmCfg, llmLog)
+	llmClient, err := infra.SetupLLMClient(llmCfg, llmLog)
 	if err != nil {
 		return fmt.Errorf("setup llm client: %w", err)
 	}
