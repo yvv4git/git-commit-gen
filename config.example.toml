@@ -31,3 +31,21 @@ maxInterval = "10s"
 # name = "secondary"
 # type = "open-ai"
 # ...
+
+# OpenRouter free tier. The model must support tool calling.
+# The free router picks an available free model automatically.
+# [[llms]]
+# name = "openrouter"
+# type = "open-ai"
+#
+# [llms.proxy]
+# enable = false
+# type = "socks5"
+# addr = "localhost:1080"
+# login = ""
+# passw = ""
+#
+# [llms.openai]
+# api = "https://openrouter.ai/api/v1"
+# token = ""
+# model = "openrouter/free"

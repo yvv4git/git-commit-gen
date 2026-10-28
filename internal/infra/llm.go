@@ -1,29 +1,40 @@
 package infra
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/yvv4git/git-commit-gen/internal/config"
 	"github.com/yvv4git/git-commit-gen/internal/domain"
+	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 )
 
-func SetupOpenAIClient(cfg config.LLM) (*openai.LLM, error) {
+type modelLoggingTransport struct {
+	base http.RoundTripper
+	log  *zap.Logger
+}
+
+type modelResponse struct {
+	Model string `json:"model"`
+}
+
+func SetupOpenAIClient(cfg config.LLM, log *zap.Logger) (*openai.LLM, error) {
+	client, err := newHTTPClient(cfg.Proxy, log)
+	if err != nil {
+		return nil, fmt.Errorf("create http client: %w", err)
+	}
+
 	opts := []openai.Option{
 		openai.WithBaseURL(cfg.OpenAI.API),
 		openai.WithToken(cfg.OpenAI.Token),
 		openai.WithModel(cfg.OpenAI.Model),
-	}
-
-	if cfg.Proxy.Enable {
-		client, err := newHTTPClient(cfg.Proxy)
-		if err != nil {
-			return nil, fmt.Errorf("create proxy client: %w", err)
-		}
-		opts = append(opts, openai.WithHTTPClient(client))
+		openai.WithHTTPClient(client),
 	}
 
 	llm, err := openai.New(opts...)
@@ -34,7 +45,11 @@ func SetupOpenAIClient(cfg config.LLM) (*openai.LLM, error) {
 	return llm, nil
 }
 
-func newHTTPClient(p config.Proxy) (*http.Client, error) {
+func newHTTPClient(p config.Proxy, log *zap.Logger) (*http.Client, error) {
+	if !p.Enable {
+		return &http.Client{Transport: &modelLoggingTransport{base: http.DefaultTransport, log: log}}, nil
+	}
+
 	var transport http.Transport
 
 	switch p.Typ {
@@ -63,5 +78,40 @@ func newHTTPClient(p config.Proxy) (*http.Client, error) {
 		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedProxyType, p.Typ)
 	}
 
-	return &http.Client{Transport: &transport}, nil
+	return &http.Client{Transport: &modelLoggingTransport{base: &transport, log: log}}, nil
+}
+
+func (t *modelLoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Body == nil {
+		return resp, nil
+	}
+
+	originalBody := resp.Body
+	body, readErr := io.ReadAll(originalBody)
+	closeErr := originalBody.Close()
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+
+	if readErr != nil {
+		return nil, fmt.Errorf("read response body: %w", readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close response body: %w", closeErr)
+	}
+
+	t.logModel(body)
+
+	return resp, nil
+}
+
+func (t *modelLoggingTransport) logModel(body []byte) {
+	var payload modelResponse
+	if json.Unmarshal(body, &payload) != nil || payload.Model == "" {
+		return
+	}
+
+	t.log.Info("LLM model", zap.String("model", payload.Model))
 }
