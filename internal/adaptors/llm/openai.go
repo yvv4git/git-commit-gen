@@ -296,13 +296,30 @@ func (l *OpenAI) executeToolCalls(ctx context.Context, run *agentRun, choice *ll
 	for _, call := range choice.ToolCalls {
 		result, err := l.executeToolCall(ctx, run, call)
 		if err != nil {
-			return err
+			if !l.isRecoverableToolError(err) {
+				return err
+			}
+
+			result = err.Error()
 		}
 
 		run.appendToolResponse(call, result)
 	}
 
 	return nil
+}
+
+func (*OpenAI) isRecoverableToolError(err error) bool {
+	return errors.Is(err, domain.ErrEmptyCommitMessage) ||
+		errors.Is(err, domain.ErrCommitMessageTooLong) ||
+		errors.Is(err, domain.ErrCommitMessageControl) ||
+		errors.Is(err, domain.ErrCommitMessageNUL) ||
+		errors.Is(err, domain.ErrCommitMessageANSI) ||
+		errors.Is(err, domain.ErrForbiddenCommitTrailer) ||
+		errors.Is(err, domain.ErrCommitAlreadyUpdated) ||
+		errors.Is(err, domain.ErrCommitNotUpdated) ||
+		errors.Is(err, domain.ErrUnknownTool) ||
+		errors.Is(err, domain.ErrToolArguments)
 }
 
 func (l *OpenAI) executeToolCall(ctx context.Context, run *agentRun, call llms.ToolCall) (string, error) {
@@ -598,7 +615,7 @@ func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDes
 
 func (a *updateFirstCommitArgs) parse(arguments string) error {
 	if err := json.Unmarshal([]byte(arguments), a); err != nil {
-		return fmt.Errorf("parse update first commit args: %w", err)
+		return fmt.Errorf("%w: parse update first commit args: %w", domain.ErrToolArguments, err)
 	}
 
 	return validateCommitMessage(a.CommitMessage)
@@ -643,7 +660,7 @@ func validateCommitMessage(message string) error {
 
 func forbiddenTrailer(line string) string {
 	lower := strings.ToLower(strings.TrimSpace(line))
-	if strings.Contains(lower, "[skip ci]") {
+	if lower == "[skip ci]" {
 		return "[skip ci]"
 	}
 

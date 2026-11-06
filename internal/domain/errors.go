@@ -28,4 +28,5 @@ var (
 	ErrRulesTooLarge           = errors.New("rules too large")                                           // LLM10: limits system prompt size and request cost.
 	ErrContextBudgetExceeded   = errors.New("context budget exceeded")                                   // LLM10, ASI08: stops unbounded context growth and spending.
 	ErrAgentTurnsExceeded      = errors.New("agent turns exceeded")                                      // LLM10, ASI08: stops endless tool loops.
+	ErrToolArguments           = errors.New("invalid tool arguments")
 )
