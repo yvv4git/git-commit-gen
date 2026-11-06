@@ -1,4 +1,4 @@
-package core
+package generator
 
 import (
 	"context"
@@ -10,37 +10,31 @@ import (
 
 type Generator struct {
 	baseBranch string
-	visual     bool
 	git        ports.Git
 	llm        ports.LLM
 }
 
-func NewGenerator(baseBranch string, visual bool, git ports.Git, llm ports.LLM) *Generator {
+func NewGenerator(baseBranch string, git ports.Git, llm ports.LLM) *Generator {
 	return &Generator{
 		baseBranch: baseBranch,
-		visual:     visual,
 		git:        git,
 		llm:        llm,
 	}
 }
 
-func (g *Generator) Gen(ctx context.Context) error {
+func (g *Generator) Gen(ctx context.Context) (*ports.GenCommitDescriptionResult, error) {
 	current, err := g.git.CurrentBranch(ctx, &ports.CurrentBranchParams{})
 	if err != nil {
-		return fmt.Errorf("get current branch: %w", err)
+		return nil, fmt.Errorf("get current branch: %w", err)
 	}
 	if current.Value == g.baseBranch {
-		return fmt.Errorf("%w: %q", domain.ErrOnBaseBranch, current.Value)
+		return nil, fmt.Errorf("%w: %q", domain.ErrOnBaseBranch, current.Value)
 	}
 
 	result, err := g.llm.GenCommitDescription(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if g.visual {
-		fmt.Println(result.Value)
-	}
-
-	return nil
+	return result, nil
 }

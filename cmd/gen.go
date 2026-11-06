@@ -1,35 +1,33 @@
 package commands
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/yvv4git/git-commit-gen/internal/adaptors/fs"
-	"github.com/yvv4git/git-commit-gen/internal/adaptors/git"
-	"github.com/yvv4git/git-commit-gen/internal/adaptors/llm"
-	"github.com/yvv4git/git-commit-gen/internal/config"
-	"github.com/yvv4git/git-commit-gen/internal/config/generator"
-	"github.com/yvv4git/git-commit-gen/internal/core"
-	"github.com/yvv4git/git-commit-gen/internal/infra"
-	"github.com/yvv4git/git-commit-gen/internal/ports"
-	"go.uber.org/zap"
+
+	"github.com/yvv4git/git-commit-gen/internal/application"
 )
 
-func GenCommand() *cobra.Command {
+func SetupGenCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "gen",
-		Short: "Run generate commmit",
-		Long: `Start commit generate.
+		Use:          "gen",
+		Short:        "Generate a commit message for the current branch",
+		SilenceUsage: true,
+		Example: `  # Generate a commit message with the default config
+  git-commit-gen gen
 
-Examples:
-  git-commit-gen --config /path/to/config.toml
-  git-commit-gen --config /path/to/config.toml --provider secondary
-  git-commit-gen -c /path/to/config.toml -p secondary`,
-		RunE: gen,
+  # Generate a commit message and print the result
+  git-commit-gen gen --visual
+  git-commit-gen gen -v
+
+  # Generate a commit message with another LLM provider
+  git-commit-gen gen --provider secondary
+  git-commit-gen gen -p secondary
+
+  # Generate a commit message with an explicit config
+  git-commit-gen gen --config /path/to/config.toml
+  git-commit-gen gen -c /path/to/config.toml`,
+		RunE: runGen,
 	}
 
 	cmd.Flags().BoolP("visual", "v", false, "print generated commit message")
@@ -38,14 +36,12 @@ Examples:
 	return cmd
 }
 
-func gen(cmd *cobra.Command, args []string) error {
-	cmd.SilenceUsage = true
+type genFlags struct {
+	visual   bool
+	provider string
+}
 
-	cfgPath, err := cmd.Flags().GetString("config")
-	if err != nil {
-		return err
-	}
-
+func (flags *genFlags) parse(cmd *cobra.Command) error {
 	visual, err := cmd.Flags().GetBool("visual")
 	if err != nil {
 		return fmt.Errorf("get visual flag: %w", err)
@@ -56,77 +52,32 @@ func gen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get provider flag: %w", err)
 	}
 
-	var cfg generator.Config
-	if err := config.Load(cfgPath, &cfg); err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
+	flags.visual = visual
+	flags.provider = provider
 
-	llmCfg, err := selectLLMProvider(cfg.LLMs, provider)
-	if err != nil {
+	return nil
+}
+
+func runGen(cmd *cobra.Command, _ []string) error {
+	var flags genFlags
+	if err := flags.parse(cmd); err != nil {
 		return err
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
-	log, err := infra.NewWithLogLevel(cfg.Log.Level)
+	configPath, err := cmd.Flags().GetString("config")
 	if err != nil {
-		return fmt.Errorf("setup logger: %w", err)
+		return fmt.Errorf("get config flag: %w", err)
 	}
 
-	log.Info("Config", zap.String("path", cfgPath))
-	log.Info("Config", zap.String("rules file", cfg.Gen.RulesFile))
-	log.Info("LLM provider", zap.String("name", llmCfg.Name))
-
-	gitClient := git.New()
-
-	llmLog := log.Named("LLM")
-
-	llmClient, err := infra.SetupLLMClient(llmCfg, llmLog)
+	app, err := application.NewGenApplication(cmd.Context(), application.GenOptions{
+		ConfigPath: configPath,
+		Visual:     flags.visual,
+		Provider:   flags.provider,
+	})
 	if err != nil {
-		return fmt.Errorf("setup llm client: %w", err)
+		return err
 	}
+	defer app.Shutdown()
 
-	fsClient := fs.NewFS()
-	rulesFile, err := fsClient.ReadFile(ctx, &ports.ReadFileParams{FilePath: cfg.Gen.RulesFile})
-	if err != nil {
-		return fmt.Errorf("read rules file: %w", err)
-	}
-
-	llmAdapter := llm.NewOpenAI(
-		llmLog,
-		llmClient,
-		rulesFile.Value,
-		gitClient,
-		llm.Settings{
-			BaseBranch: cfg.Gen.BaseBranch,
-			Retry: llm.RetrySettings{
-				Retries:      llmCfg.Retry.Retries,
-				InitInterval: llmCfg.Retry.InitInterval,
-				MaxInterval:  llmCfg.Retry.MaxInterval,
-			},
-		},
-	)
-
-	gen := core.NewGenerator(cfg.Gen.BaseBranch, visual, gitClient, llmAdapter)
-
-	return gen.Gen(ctx)
-}
-
-func selectLLMProvider(llms config.LLMs, name string) (config.LLM, error) {
-	if len(llms) == 0 {
-		return config.LLM{}, fmt.Errorf("no LLM providers configured")
-	}
-
-	if name == "" {
-		return llms[0], nil
-	}
-
-	for _, llmCfg := range llms {
-		if llmCfg.Name == name {
-			return llmCfg, nil
-		}
-	}
-
-	return config.LLM{}, fmt.Errorf("LLM provider %q not found", name)
+	return app.Run()
 }

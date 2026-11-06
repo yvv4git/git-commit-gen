@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/yvv4git/git-commit-gen/cmd"
+
+	commands "github.com/yvv4git/git-commit-gen/cmd"
 	"github.com/yvv4git/git-commit-gen/internal/adaptors/fs"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	}
 	rootCommand.PersistentFlags().StringP("config", "c", defaultConfigPath(), "Path to config file")
 
-	rootCommand.AddCommand(commands.GenCommand())
+	rootCommand.AddCommand(commands.SetupGenCommand())
 	rootCommand.AddCommand(commands.SetupCommand(defaultConfigContent, defaultRulesContent))
 
 	if err := rootCommand.Execute(); err != nil {

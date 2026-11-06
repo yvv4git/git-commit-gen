@@ -4,10 +4,17 @@ level = "info"
 [generator]
 baseBranch = "main"
 rulesFile = "rules.md"
+maxDiffBytes = 262144
+maxRulesBytes = 32768
+maxContextBytes = 524288
+maxAgentTurns = 12
+maxToolCallsPerTurn = 8
 
 [[llms]]
 name = "default"
 type = "open-ai"
+# Per-attempt LLM request timeout. Defaults to 90s.
+requestTimeout = "90s"
 
 [llms.proxy]
 enable = false
@@ -17,9 +24,12 @@ login = ""
 passw = ""
 
 [llms.openai]
+# The API URL is set only here, not in .env.
 api = "https://api.openai.com/v1"
 token = ""
 model = "gpt-4o"
+# Allow plaintext http:// for a non-local API. Keep false unless you trust the network.
+allowInsecureHttp = false
 
 [llms.retry]
 retries = 3

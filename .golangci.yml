@@ -1,0 +1,25 @@
+version: "2"
+
+run:
+  # The CI runner starts with an empty module cache, so the first analysis pays
+  # for downloading every dependency and building every package of the repository
+  # before it lints a single line. Five minutes was not enough for that, and the
+  # run died with a timeout on clean code.
+  timeout: 15m
+  go: "1.26"
+
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - unused
+    - govet
+    - gocritic
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/yvv4git/git-commit-gen

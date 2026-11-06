@@ -11,10 +11,24 @@ type Config struct {
 }
 
 type Generator struct {
-	BaseBranch string `toml:"baseBranch" env:"GIT_GEN_BASE_BRANCH"`
-	RulesFile  string `toml:"rulesFile"`
+	BaseBranch          string `toml:"baseBranch"`
+	RulesFile           string `toml:"rulesFile"`
+	MaxDiffBytes        int    `toml:"maxDiffBytes"`
+	MaxRulesBytes       int    `toml:"maxRulesBytes"`
+	MaxContextBytes     int    `toml:"maxContextBytes"`
+	MaxAgentTurns       int    `toml:"maxAgentTurns"`
+	MaxToolCallsPerTurn int    `toml:"maxToolCallsPerTurn"`
 }
 
 func Load(path string, cfg *Config) error {
-	return config.Load(path, cfg)
+	if err := config.Load(path, cfg); err != nil {
+		return err
+	}
+
+	values, err := config.LoadDotEnv()
+	if err != nil {
+		return err
+	}
+
+	return cfg.applyDotEnv(values)
 }

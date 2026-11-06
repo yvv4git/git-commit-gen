@@ -2,8 +2,8 @@ package commands
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/yvv4git/git-commit-gen/internal/adaptors/fs"
-	"github.com/yvv4git/git-commit-gen/internal/core"
+
+	"github.com/yvv4git/git-commit-gen/internal/application"
 )
 
 func SetupCommand(configContent, rulesContent string) *cobra.Command {
@@ -17,13 +17,13 @@ Example:
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.SilenceUsage = true
 
-			var f fs.FS
-			setup := core.NewSetup(&f, &f)
-
-			return setup.Run(cmd.Context(), &core.SetupParams{
+			app := application.NewSetupApplication(cmd.Context(), application.SetupOptions{
 				ConfigContent: configContent,
 				RulesContent:  rulesContent,
 			})
+			defer app.Shutdown()
+
+			return app.Run()
 		},
 	}
 }

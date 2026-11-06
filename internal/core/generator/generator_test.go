@@ -1,4 +1,4 @@
-package core
+package generator
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
@@ -55,9 +56,9 @@ func (f *fakeLLM) GenCommitDescription(_ context.Context) (*ports.GenCommitDescr
 
 func TestGenOnBaseBranch(t *testing.T) {
 	llm := &fakeLLM{}
-	generator := NewGenerator("main", false, &fakeGit{branch: "main"}, llm)
+	generator := NewGenerator("main", &fakeGit{branch: "main"}, llm)
 
-	err := generator.Gen(context.Background())
+	_, err := generator.Gen(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrOnBaseBranch)
 	assert.Zero(t, llm.calls)
@@ -65,9 +66,9 @@ func TestGenOnBaseBranch(t *testing.T) {
 
 func TestGenCurrentBranchError(t *testing.T) {
 	llm := &fakeLLM{}
-	generator := NewGenerator("main", false, &fakeGit{currentErr: errCurrentBranch}, llm)
+	generator := NewGenerator("main", &fakeGit{currentErr: errCurrentBranch}, llm)
 
-	err := generator.Gen(context.Background())
+	_, err := generator.Gen(context.Background())
 
 	require.ErrorIs(t, err, errCurrentBranch)
 	assert.Zero(t, llm.calls)
@@ -75,9 +76,9 @@ func TestGenCurrentBranchError(t *testing.T) {
 
 func TestGenAgentError(t *testing.T) {
 	llm := &fakeLLM{err: errAgent}
-	generator := NewGenerator("main", false, &fakeGit{branch: "feature"}, llm)
+	generator := NewGenerator("main", &fakeGit{branch: "feature"}, llm)
 
-	err := generator.Gen(context.Background())
+	_, err := generator.Gen(context.Background())
 
 	require.ErrorIs(t, err, errAgent)
 	assert.Equal(t, 1, llm.calls)
@@ -85,10 +86,11 @@ func TestGenAgentError(t *testing.T) {
 
 func TestGenSuccess(t *testing.T) {
 	llm := &fakeLLM{result: &ports.GenCommitDescriptionResult{Value: "TASK-14: add agent"}}
-	generator := NewGenerator("main", false, &fakeGit{branch: "feature"}, llm)
+	generator := NewGenerator("main", &fakeGit{branch: "feature"}, llm)
 
-	err := generator.Gen(context.Background())
+	result, err := generator.Gen(context.Background())
 
 	require.NoError(t, err)
+	assert.Equal(t, "TASK-14: add agent", result.Value)
 	assert.Equal(t, 1, llm.calls)
 }

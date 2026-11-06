@@ -4,10 +4,14 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
@@ -187,6 +191,26 @@ func TestUpdateFirstCommitTwoBranchCommits(t *testing.T) {
 	require.Equal(t, "2", repo.run("rev-list", "--count", testBaseBranch+".."+testWorkBranch))
 }
 
+func TestUpdateFirstCommitCreatesBackupRef(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", "two")
+	oldHash := repo.commit("Feature commit")
+
+	client := New()
+
+	result, err := client.UpdateFirstCommit(context.Background(), &ports.UpdateFirstCommitParams{
+		CommitMessage: "Generated message",
+		BaseBranch:    testBaseBranch,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, result.BackupRef)
+	require.Equal(t, oldHash, repo.run("rev-parse", result.BackupRef))
+	require.NotEqual(t, oldHash, repo.run("rev-parse", testWorkBranch))
+}
+
 func TestFirstCommitMessageSingleBranchCommit(t *testing.T) {
 	repo := newTestRepo(t)
 	repo.writeFile("a.txt", "one")
@@ -238,6 +262,24 @@ func TestFirstCommitMessageNoBranchCommits(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrNoCommitsToUpdate)
 }
 
+func TestLoadDiffRejectsTooLargeDiff(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", strings.Repeat("two\n", 100))
+	repo.commit("Feature commit")
+
+	client := New()
+
+	_, err := client.LoadDiff(context.Background(), &ports.LoadDiffParams{
+		BaseBranch: testBaseBranch,
+		MaxBytes:   10,
+	})
+
+	require.ErrorIs(t, err, domain.ErrDiffTooLarge)
+}
+
 func TestLoadDiffNoBranchCommits(t *testing.T) {
 	repo := newTestRepo(t)
 	repo.writeFile("a.txt", "one")
@@ -249,4 +291,56 @@ func TestLoadDiffNoBranchCommits(t *testing.T) {
 	_, err := client.LoadDiff(context.Background(), &ports.LoadDiffParams{BaseBranch: testBaseBranch})
 
 	require.ErrorIs(t, err, domain.ErrNoCommitsToUpdate)
+}
+
+func TestUpdateFirstCommitHonorsCanceledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", "two")
+	oldHash := repo.commit("Feature commit")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := New()
+
+	_, err := client.UpdateFirstCommit(ctx, &ports.UpdateFirstCommitParams{
+		CommitMessage: "Generated message",
+		BaseBranch:    testBaseBranch,
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, oldHash, repo.run("rev-parse", testWorkBranch))
+}
+
+func TestUpdateFirstCommitTimesOut(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses a shell script as gpg.program")
+	}
+
+	repo := newTestRepo(t)
+	repo.writeFile("a.txt", "one")
+	repo.commit("Initial commit")
+	repo.createBranch(testWorkBranch)
+	repo.writeFile("b.txt", "two")
+	oldHash := repo.commit("Feature commit")
+
+	script := filepath.Join(t.TempDir(), "slow-gpg.sh")
+	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 10\n"), 0o755))
+	repo.run("config", "commit.gpgsign", "true")
+	repo.run("config", "gpg.program", script)
+
+	client := newWithTimeout(100 * time.Millisecond)
+
+	started := time.Now()
+	_, err := client.UpdateFirstCommit(context.Background(), &ports.UpdateFirstCommitParams{
+		CommitMessage: "Generated message",
+		BaseBranch:    testBaseBranch,
+	})
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, time.Since(started), 5*time.Second)
+	require.Equal(t, oldHash, repo.run("rev-parse", testWorkBranch))
 }
