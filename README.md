@@ -87,7 +87,17 @@ Environment variables (OPENAI_TOKEN, OPENAI_API, OPENAI_MODEL, PROXY_TYPE, etc.)
 
 ## Rules file
 
-The rules.md file contains guidelines for commit message format. The LLM will follow these rules when generating messages. See rules.example.md for an example.
+The `rules.md` file contains guidelines for commit message format.
+The LLM will follow these rules when generating messages.
+See `rules.example.md` for an example.
+
+The rules file is resolved in this order:
+
+1. The `generator.rulesFile` path, relative to the current working directory or absolute.
+2. `~/.config/git_commit_gen/rules.md`.
+
+If neither file exists, the command fails before it creates an LLM client or sends a request.
+The `config.toml` file is never read as the rules file.
 
 <p align="center">
   <a href="https://tonviewer.com/UQCcbp-mue-7HTjDNQ_ZrKtg-tUxIFu817APmItjXasiBGP3">

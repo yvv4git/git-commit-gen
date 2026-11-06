@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrEmptyRules              = errors.New("got empty rules")
+	ErrRulesNotFound           = errors.New("rules file not found")
 	ErrUnsupportedProxyType    = errors.New("unsupported proxy type")
 	ErrNoResponseChoices       = errors.New("no response choices")
 	ErrNoCommitsToUpdate       = errors.New("no commits to update")

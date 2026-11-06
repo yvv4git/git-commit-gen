@@ -78,6 +78,12 @@ func gen(cmd *cobra.Command, args []string) error {
 	log.Info("Config", zap.String("rules file", cfg.Gen.RulesFile))
 	log.Info("LLM provider", zap.String("name", llmCfg.Name))
 
+	fsClient := fs.NewFS()
+	rulesFile, err := fsClient.ReadFile(ctx, &ports.ReadFileParams{FilePath: cfg.Gen.RulesFile})
+	if err != nil {
+		return fmt.Errorf("read rules file: %w", err)
+	}
+
 	gitClient := git.New()
 
 	llmLog := log.Named("LLM")
@@ -85,12 +91,6 @@ func gen(cmd *cobra.Command, args []string) error {
 	llmClient, err := infra.SetupLLMClient(llmCfg, llmLog)
 	if err != nil {
 		return fmt.Errorf("setup llm client: %w", err)
-	}
-
-	fsClient := fs.NewFS()
-	rulesFile, err := fsClient.ReadFile(ctx, &ports.ReadFileParams{FilePath: cfg.Gen.RulesFile})
-	if err != nil {
-		return fmt.Errorf("read rules file: %w", err)
 	}
 
 	llmAdapter := llm.NewOpenAI(
