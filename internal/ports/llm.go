@@ -4,7 +4,12 @@ import "context"
 
 type (
 	GenCommitDescriptionResult struct {
-		Value string
+		Value            string
+		BackupRef        string
+		PromptTokens     int
+		CompletionTokens int
+		TotalTokens      int
+		Requests         int
 	}
 )
 

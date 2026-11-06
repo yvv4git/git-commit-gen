@@ -5,6 +5,7 @@ import "context"
 type (
 	LoadDiffParams struct {
 		BaseBranch string
+		MaxBytes   int
 	}
 	LoadDiffResult struct {
 		Diff string
@@ -25,7 +26,9 @@ type (
 		CommitMessage string
 		BaseBranch    string
 	}
-	UpdateFirstCommitResult struct{}
+	UpdateFirstCommitResult struct {
+		BackupRef string
+	}
 )
 
 type (

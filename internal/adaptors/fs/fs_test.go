@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/yvv4git/git-commit-gen/internal/domain"
 	"github.com/yvv4git/git-commit-gen/internal/ports"
 )
@@ -56,4 +57,46 @@ func TestReadFileDoesNotFallBackToConfig(t *testing.T) {
 	result, err := NewFS().ReadFile(context.Background(), &ports.ReadFileParams{FilePath: RulesFileName})
 	require.ErrorIs(t, err, domain.ErrRulesNotFound)
 	require.Nil(t, result)
+}
+
+func TestWriteFileSetsPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ConfigFileName)
+
+	err := NewFS().WriteFile(context.Background(), &ports.WriteFileParams{FilePath: path, Content: "test"})
+	require.NoError(t, err)
+	requirePermissions(t, path, 0o600)
+}
+
+func TestWriteFileFixesExistingPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ConfigFileName)
+	require.NoError(t, os.WriteFile(path, []byte("old"), 0o644))
+
+	err := NewFS().WriteFile(context.Background(), &ports.WriteFileParams{FilePath: path, Content: "new"})
+	require.NoError(t, err)
+	requirePermissions(t, path, 0o600)
+}
+
+func TestMkdirAllSetsPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ConfigAppDirName)
+
+	err := NewFS().MkdirAll(context.Background(), &ports.MkdirAllParams{DirPath: path})
+	require.NoError(t, err)
+	requirePermissions(t, path, 0o700)
+}
+
+func TestMkdirAllFixesExistingPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ConfigAppDirName)
+	require.NoError(t, os.Mkdir(path, 0o755))
+
+	err := NewFS().MkdirAll(context.Background(), &ports.MkdirAllParams{DirPath: path})
+	require.NoError(t, err)
+	requirePermissions(t, path, 0o700)
+}
+
+func requirePermissions(t *testing.T, path string, mode os.FileMode) {
+	t.Helper()
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, mode, info.Mode().Perm())
 }
