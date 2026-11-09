@@ -11,8 +11,15 @@ type (
 		TotalTokens      int
 		Requests         int
 	}
+	ProviderCheckResult struct {
+		Value string
+	}
 )
 
 type LLM interface {
 	GenCommitDescription(ctx context.Context) (*GenCommitDescriptionResult, error)
+}
+
+type ProviderChecker interface {
+	CheckProvider(ctx context.Context) (*ProviderCheckResult, error)
 }

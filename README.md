@@ -80,6 +80,25 @@ git-commit-gen gen -p secondary
 
 If `-p` is omitted, the first provider from the `[[llms]]` list is used.
 
+### Provider check
+
+To verify that a provider is reachable and the model responds without touching the repository:
+
+```bash
+git-commit-gen check -p secondary
+```
+
+The command sends a single prompt and prints the provider status and the model reply:
+
+```text
+Provider "secondary" is working.
+
+Model reply:
+I am a large language model.
+```
+
+If `-p` is omitted, the first provider from the `[[llms]]` list is used.
+
 ### Backup and rollback
 
 Before rewriting the first commit, the tool creates a local backup ref

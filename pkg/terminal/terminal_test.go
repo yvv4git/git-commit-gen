@@ -101,3 +101,10 @@ func TestSanitize(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatCheck(t *testing.T) {
+	got := FormatCheck("ollama", "I am \x1b[31mQwen\x1b[0m\n")
+
+	want := "Provider \"ollama\" is working.\n\nModel reply:\nI am Qwen\n"
+	assert.Equal(t, want, got)
+}

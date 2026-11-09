@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -164,19 +163,5 @@ func (a *GenApplication) limitOptions() []llm.Option {
 }
 
 func (a *GenApplication) selectLLMProvider(name string) (config.LLM, error) {
-	if len(a.cfg.LLMs) == 0 {
-		return config.LLM{}, errors.New("no LLM providers configured")
-	}
-
-	if name == "" {
-		return a.cfg.LLMs[0], nil
-	}
-
-	for _, llmCfg := range a.cfg.LLMs {
-		if llmCfg.Name == name {
-			return llmCfg, nil
-		}
-	}
-
-	return config.LLM{}, fmt.Errorf("LLM provider %q not found", name)
+	return selectLLMProvider(a.cfg, name)
 }
