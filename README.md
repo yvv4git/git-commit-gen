@@ -58,7 +58,7 @@ The output is a table with the commit message, backup ref, token usage, and the 
 
 ```text
 ┌────────────────┬──────────────────────────────────────────────┐
-│ Часть          │ Значение                                     │
+│ Field          │ Value                                        │
 ├────────────────┼──────────────────────────────────────────────┤
 │ Commit message │ TASK-17: add guard                           │
 │                │                                              │

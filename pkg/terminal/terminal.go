@@ -56,7 +56,7 @@ func FormatResult(result Result) string {
 
 	writer := table.NewWriter()
 	writer.SetStyle(style)
-	writer.AppendHeader(table.Row{"Часть", "Значение"})
+	writer.AppendHeader(table.Row{"Field", "Value"})
 	writer.AppendRow(table.Row{"Commit message", message})
 
 	if backup != "" {
