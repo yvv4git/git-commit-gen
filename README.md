@@ -184,15 +184,11 @@ registered agent apps and return `403`, so a specific free model may stop workin
 After that, the tool reads `.env` from the current working directory.
 Values from `.env` override `config.toml`; process environment variables are not used.
 
-Supported `.env` keys:
+Supported `.env` key:
 
 - `GIT_GEN_BASE_BRANCH`
-- `GIT_GEN_PROXY_ENABLE`, `GIT_GEN_PROXY_TYPE`, `GIT_GEN_PROXY_ADDR`, `GIT_GEN_PROXY_LOGIN`, `GIT_GEN_PROXY_PASSW`
-- `GIT_GEN_LLM_RETRY_RETRIES`, `GIT_GEN_LLM_RETRY_INIT_INTERVAL`, `GIT_GEN_LLM_RETRY_MAX_INTERVAL`
-- `GIT_GEN_OPENAI_TOKEN`, `GIT_GEN_OPENAI_MODEL`
 
-`GIT_GEN_OPENAI_API` is not read from `.env`; set the API URL in `config.toml`.
-Provider overrides apply to every `[[llms]]` entry.
+Provider settings (API, token, model, proxy, retry) are configured only in `config.toml`.
 Because `.env` comes from the working directory, do not run the tool in an untrusted repository with an unexpected `.env`.
 
 ## Secrets

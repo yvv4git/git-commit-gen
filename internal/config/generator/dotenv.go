@@ -7,5 +7,5 @@ func (cfg *Config) applyDotEnv(values map[string]string) error {
 		cfg.Gen.BaseBranch = value
 	}
 
-	return cfg.LLMs.ApplyDotEnv(values)
+	return nil
 }

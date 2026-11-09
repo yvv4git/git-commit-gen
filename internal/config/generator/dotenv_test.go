@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/yvv4git/git-commit-gen/internal/config"
 )
 
 const testLimitsConfig = `
@@ -58,7 +56,7 @@ func writeTestFile(t *testing.T, path string, content string) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 }
 
-func TestLoadOverridesFromDotEnv(t *testing.T) {
+func TestLoadOverridesBaseBranchFromDotEnv(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	configDir := t.TempDir()
@@ -67,6 +65,7 @@ func TestLoadOverridesFromDotEnv(t *testing.T) {
 	writeTestFile(t, filepath.Join(configDir, ".env"), "GIT_GEN_BASE_BRANCH=wrong\n")
 
 	dotEnv := `GIT_GEN_BASE_BRANCH=dev
+GIT_GEN_PROVIDER=default
 GIT_GEN_PROXY_ENABLE=true
 GIT_GEN_PROXY_TYPE=http
 GIT_GEN_PROXY_ADDR=proxy.example:8080
@@ -80,25 +79,22 @@ GIT_GEN_OPENAI_TOKEN=env-token
 GIT_GEN_OPENAI_MODEL=env-model
 GIT_GEN_DOTENV_MARKER=secret
 `
-	if err := os.WriteFile(filepath.Join(workDir, ".env"), []byte(dotEnv), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeTestFile(t, filepath.Join(workDir, ".env"), dotEnv)
 
 	var cfg Config
 	require.NoError(t, Load(configPath, &cfg))
 	require.Equal(t, "dev", cfg.Gen.BaseBranch)
 	require.Len(t, cfg.LLMs, 1)
-	require.True(t, cfg.LLMs[0].Proxy.Enable)
-	require.Equal(t, config.TypeProxy(config.TypeProxyHTTP), cfg.LLMs[0].Proxy.Typ)
-	require.Equal(t, "proxy.example:8080", cfg.LLMs[0].Proxy.Addr)
-	require.Equal(t, "user", cfg.LLMs[0].Proxy.Login)
-	require.Equal(t, "pass", cfg.LLMs[0].Proxy.Passw)
-	require.Equal(t, uint64(5), cfg.LLMs[0].Retry.Retries)
-	require.Equal(t, 3*time.Second, cfg.LLMs[0].Retry.InitInterval)
-	require.Equal(t, 4*time.Second, cfg.LLMs[0].Retry.MaxInterval)
+	require.False(t, cfg.LLMs[0].Proxy.Enable)
+	require.Equal(t, "localhost:1080", cfg.LLMs[0].Proxy.Addr)
+	require.Empty(t, cfg.LLMs[0].Proxy.Login)
+	require.Empty(t, cfg.LLMs[0].Proxy.Passw)
+	require.Equal(t, uint64(1), cfg.LLMs[0].Retry.Retries)
+	require.Equal(t, time.Second, cfg.LLMs[0].Retry.InitInterval)
+	require.Equal(t, 2*time.Second, cfg.LLMs[0].Retry.MaxInterval)
 	require.Equal(t, "https://config.example/v1", cfg.LLMs[0].OpenAI.API)
-	require.Equal(t, "env-token", cfg.LLMs[0].OpenAI.Token)
-	require.Equal(t, "env-model", cfg.LLMs[0].OpenAI.Model)
+	require.Equal(t, "toml-token", cfg.LLMs[0].OpenAI.Token)
+	require.Equal(t, "toml-model", cfg.LLMs[0].OpenAI.Model)
 	require.Empty(t, os.Getenv("GIT_GEN_DOTENV_MARKER"))
 }
 
@@ -148,17 +144,4 @@ func TestLoadReadsLimits(t *testing.T) {
 	require.Equal(t, 3000, cfg.Gen.MaxContextBytes)
 	require.Equal(t, 4, cfg.Gen.MaxAgentTurns)
 	require.Equal(t, 2, cfg.Gen.MaxToolCallsPerTurn)
-}
-
-func TestLoadRejectsInvalidDotEnvValue(t *testing.T) {
-	t.Chdir(t.TempDir())
-	writeTestFile(t, ".env", "GIT_GEN_LLM_RETRY_RETRIES=abc\n")
-
-	configPath := filepath.Join(t.TempDir(), "config.toml")
-	writeTestFile(t, configPath, testConfig)
-
-	var cfg Config
-	err := Load(configPath, &cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "GIT_GEN_LLM_RETRY_RETRIES")
 }
