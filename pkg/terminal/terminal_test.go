@@ -23,7 +23,7 @@ func TestFormatResult(t *testing.T) {
 				Requests:         3,
 			},
 			want: "┌────────────────┬──────────────────────────────────────┐\n" +
-				"│ Часть          │ Значение                             │\n" +
+				"│ Field          │ Value                                │\n" +
 				"├────────────────┼──────────────────────────────────────┤\n" +
 				"│ Commit message │ TASK-17: add guard                   │\n" +
 				"│                │                                      │\n" +
@@ -40,7 +40,7 @@ func TestFormatResult(t *testing.T) {
 				Requests:      1,
 			},
 			want: "┌────────────────┬────────────────────────────────────┐\n" +
-				"│ Часть          │ Значение                           │\n" +
+				"│ Field          │ Value                              │\n" +
 				"├────────────────┼────────────────────────────────────┤\n" +
 				"│ Commit message │ TASK-17: add guard                 │\n" +
 				"│ Tokens         │ prompt: 0, completion: 0, total: 0 │\n" +
@@ -58,7 +58,7 @@ func TestFormatResult(t *testing.T) {
 				Requests:         4,
 			},
 			want: "┌────────────────┬───────────────────────────────────────┐\n" +
-				"│ Часть          │ Значение                              │\n" +
+				"│ Field          │ Value                                 │\n" +
 				"├────────────────┼───────────────────────────────────────┤\n" +
 				"│ Commit message │ TASK-17: add guard                    │\n" +
 				"│ Backup         │ refs/git-commit-gen/backup/1          │\n" +
@@ -100,4 +100,11 @@ func TestSanitize(t *testing.T) {
 			assert.Equal(t, tt.want, Sanitize(tt.value))
 		})
 	}
+}
+
+func TestFormatCheck(t *testing.T) {
+	got := FormatCheck("ollama", "I am \x1b[31mQwen\x1b[0m\n")
+
+	want := "Provider \"ollama\" is working.\n\nModel reply:\nI am Qwen\n"
+	assert.Equal(t, want, got)
 }

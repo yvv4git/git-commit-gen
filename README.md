@@ -58,7 +58,7 @@ The output is a table with the commit message, backup ref, token usage, and the 
 
 ```text
 ┌────────────────┬──────────────────────────────────────────────┐
-│ Часть          │ Значение                                     │
+│ Field          │ Value                                        │
 ├────────────────┼──────────────────────────────────────────────┤
 │ Commit message │ TASK-17: add guard                           │
 │                │                                              │
@@ -76,6 +76,25 @@ To use a specific LLM provider defined in the config:
 
 ```bash
 git-commit-gen gen -p secondary
+```
+
+If `-p` is omitted, the first provider from the `[[llms]]` list is used.
+
+### Provider check
+
+To verify that a provider is reachable and the model responds without touching the repository:
+
+```bash
+git-commit-gen check -p secondary
+```
+
+The command sends a single prompt and prints the provider status and the model reply:
+
+```text
+Provider "secondary" is working.
+
+Model reply:
+I am a large language model.
 ```
 
 If `-p` is omitted, the first provider from the `[[llms]]` list is used.
@@ -165,15 +184,11 @@ registered agent apps and return `403`, so a specific free model may stop workin
 After that, the tool reads `.env` from the current working directory.
 Values from `.env` override `config.toml`; process environment variables are not used.
 
-Supported `.env` keys:
+Supported `.env` key:
 
 - `GIT_GEN_BASE_BRANCH`
-- `GIT_GEN_PROXY_ENABLE`, `GIT_GEN_PROXY_TYPE`, `GIT_GEN_PROXY_ADDR`, `GIT_GEN_PROXY_LOGIN`, `GIT_GEN_PROXY_PASSW`
-- `GIT_GEN_LLM_RETRY_RETRIES`, `GIT_GEN_LLM_RETRY_INIT_INTERVAL`, `GIT_GEN_LLM_RETRY_MAX_INTERVAL`
-- `GIT_GEN_OPENAI_TOKEN`, `GIT_GEN_OPENAI_MODEL`
 
-`GIT_GEN_OPENAI_API` is not read from `.env`; set the API URL in `config.toml`.
-Provider overrides apply to every `[[llms]]` entry.
+Provider settings (API, token, model, proxy, retry) are configured only in `config.toml`.
 Because `.env` comes from the working directory, do not run the tool in an untrusted repository with an unexpected `.env`.
 
 ## Secrets

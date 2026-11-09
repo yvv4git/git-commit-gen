@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,7 +57,7 @@ func FormatResult(result Result) string {
 
 	writer := table.NewWriter()
 	writer.SetStyle(style)
-	writer.AppendHeader(table.Row{"Часть", "Значение"})
+	writer.AppendHeader(table.Row{"Field", "Value"})
 	writer.AppendRow(table.Row{"Commit message", message})
 
 	if backup != "" {
@@ -67,4 +68,10 @@ func FormatResult(result Result) string {
 	writer.AppendRow(table.Row{"API requests", strconv.Itoa(result.Requests)})
 
 	return writer.Render() + "\n"
+}
+
+func FormatCheck(provider, reply string) string {
+	reply = strings.TrimRight(Sanitize(reply), "\n")
+
+	return fmt.Sprintf("Provider %q is working.\n\nModel reply:\n%s\n", provider, reply)
 }
