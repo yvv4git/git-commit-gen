@@ -136,6 +136,14 @@ type agentRun struct {
 	requests         int
 	toolCalls        int
 	lastAssistant    string
+	step             int
+	turn             int
+}
+
+func (r *agentRun) nextStep() int {
+	r.step++
+
+	return r.step
 }
 
 type contentCall struct {
@@ -192,12 +200,17 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 	reminders := 0
 
 	for turn := 0; turn < l.options.maxAgentTurns; turn++ {
+		run.turn = turn + 1
+
 		if err := l.checkContextBudget(run.messages); err != nil {
 			return nil, err
 		}
 
-		l.log.Info("Waiting for LLM response",
-			zap.Int("turn", turn+1),
+		l.log.Info(fmt.Sprintf("Agent turn %d/%d: requesting LLM", run.turn, l.options.maxAgentTurns),
+			zap.Int("step", run.nextStep()),
+			zap.String("actor", "agent"),
+			zap.String("phase", "llm_request"),
+			zap.Int("turn", run.turn),
 			zap.Int("max_turns", l.options.maxAgentTurns),
 			zap.Int("messages", len(run.messages)),
 			zap.Int("context_bytes", messageBytes(run.messages)))
@@ -216,16 +229,25 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 		run.lastAssistant = choice.Content
 		run.toolCalls += len(choice.ToolCalls)
 
+		l.log.Info(fmt.Sprintf("Agent turn %d/%d: LLM returned %d tool call(s)", run.turn, l.options.maxAgentTurns, len(choice.ToolCalls)),
+			zap.Int("step", run.nextStep()),
+			zap.String("actor", "agent"),
+			zap.String("phase", "llm_response"),
+			zap.Int("turn", run.turn),
+			zap.Int("tool_calls", len(choice.ToolCalls)),
+			zap.String("text", truncate(choice.Content, 200)))
+
 		if len(choice.ToolCalls) == 0 {
 			if run.updated {
-				l.log.Info("LLM finished", zap.String("content", truncate(choice.Content, 500)))
-
 				return l.result(ctx, run)
 			}
 
-			l.log.Warn("LLM returned no tool calls",
-				zap.Int("turn", turn+1),
-				zap.String("content", truncate(choice.Content, 500)))
+			l.log.Warn(fmt.Sprintf("Agent turn %d/%d: LLM returned no tool calls, sending reminder", run.turn, l.options.maxAgentTurns),
+				zap.Int("step", run.nextStep()),
+				zap.String("actor", "agent"),
+				zap.String("phase", "reminder"),
+				zap.Int("turn", run.turn),
+				zap.String("text", truncate(choice.Content, 200)))
 
 			if reminders < maxUpdateReminders {
 				reminders++
@@ -342,7 +364,12 @@ func (l *OpenAI) executeToolCall(ctx context.Context, run *agentRun, call llms.T
 	}
 
 	name := call.FunctionCall.Name
-	l.log.Info("Calling tool", zap.String("tool", name))
+	l.log.Info(fmt.Sprintf("Agent turn %d/%d: calling tool %s", run.turn, l.options.maxAgentTurns, name),
+		zap.Int("step", run.nextStep()),
+		zap.String("actor", "agent"),
+		zap.String("phase", "tool_call"),
+		zap.Int("turn", run.turn),
+		zap.String("tool", name))
 
 	var result string
 	var err error
@@ -361,12 +388,23 @@ func (l *OpenAI) executeToolCall(ctx context.Context, run *agentRun, call llms.T
 	}
 
 	if err != nil {
-		l.log.Warn("Tool failed", zap.String("tool", name), zap.Error(err))
+		l.log.Warn(fmt.Sprintf("Agent turn %d/%d: tool %s failed", run.turn, l.options.maxAgentTurns, name),
+			zap.Int("step", run.nextStep()),
+			zap.String("actor", "tool"),
+			zap.String("phase", "tool_error"),
+			zap.Int("turn", run.turn),
+			zap.String("tool", name),
+			zap.Error(err))
 
 		return "", err
 	}
 
-	l.log.Info("Tool completed", zap.String("tool", name))
+	l.log.Info(fmt.Sprintf("Agent turn %d/%d: tool %s completed", run.turn, l.options.maxAgentTurns, name),
+		zap.Int("step", run.nextStep()),
+		zap.String("actor", "tool"),
+		zap.String("phase", "tool_result"),
+		zap.Int("turn", run.turn),
+		zap.String("tool", name))
 
 	return result, nil
 }
@@ -515,7 +553,9 @@ func (c *contentCall) generate() (*llms.ContentResponse, error) {
 
 		err = c.withHTTPStatus(err)
 
-		c.log.Warn("Generate content",
+		c.log.Warn("LLM request failed",
+			zap.String("actor", "llm"),
+			zap.String("phase", "llm_error"),
 			zap.Int("attempt", c.attempt),
 			zap.Uint64("max_attempts", c.retries+1),
 			zap.Error(err))
@@ -634,6 +674,15 @@ func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDes
 			return nil, err
 		}
 	}
+
+	l.log.Info("Agent finished: commit message applied and verified",
+		zap.Int("step", run.nextStep()),
+		zap.String("actor", "agent"),
+		zap.String("phase", "done"),
+		zap.Int("turns", run.turn),
+		zap.Int("tool_calls", run.toolCalls),
+		zap.String("commit_message", run.message),
+		zap.Int("total_tokens", run.totalTokens))
 
 	return &ports.GenCommitDescriptionResult{
 		Value:            run.message,

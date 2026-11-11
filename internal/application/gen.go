@@ -58,7 +58,10 @@ func NewGenApplication(parent context.Context, opts GenOptions) (*GenApplication
 		opts: opts,
 	}
 
-	app.log.Info("Starting",
+	app.log.Info("Starting git-commit-gen",
+		zap.Int("step", 0),
+		zap.String("actor", "app"),
+		zap.String("phase", "init"),
 		zap.String("command", "gen"),
 		zap.String("config_path", opts.ConfigPath),
 		zap.String("log_level", cfg.Log.Level),
@@ -120,7 +123,12 @@ func (a *GenApplication) newGenerator() (*generatoruc.Generator, error) {
 		return nil, fmt.Errorf("setup llm client: %w", err)
 	}
 
-	llmLog.Info("LLM provider", zap.String("name", llmCfg.Name))
+	llmLog.Info("LLM provider configured",
+		zap.Int("step", 0),
+		zap.String("actor", "app"),
+		zap.String("phase", "init"),
+		zap.String("name", llmCfg.Name),
+		zap.String("model", llmCfg.OpenAI.Model))
 
 	gitClient := git.New()
 	llmAdapter := llm.NewOpenAI(llmLog, llmClient, rulesFile.Value, gitClient, a.llmOptions(llmCfg, retryStatus)...)
