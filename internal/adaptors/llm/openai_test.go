@@ -574,6 +574,8 @@ func TestGenCommitDescriptionWithoutUpdate(t *testing.T) {
 	_, err := newTestAdapter(t, gitClient, generator, "").GenCommitDescription(context.Background())
 
 	require.ErrorIs(t, err, domain.ErrCommitNotUpdated)
+	require.Contains(t, err.Error(), "did not call any tool")
+	require.Contains(t, err.Error(), "Nothing to update")
 	assert.Empty(t, gitClient.updates)
 }
 

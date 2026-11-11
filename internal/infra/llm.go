@@ -235,5 +235,8 @@ func (t *modelLoggingTransport) logModel(body []byte) {
 		return
 	}
 
-	t.log.Info("LLM model", zap.String("model", payload.Model))
+	t.log.Info("LLM HTTP response received",
+		zap.String("actor", "llm"),
+		zap.String("phase", "http_response"),
+		zap.String("model", payload.Model))
 }

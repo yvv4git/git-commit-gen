@@ -110,10 +110,23 @@ func TestLoadIgnoresProcessEnv(t *testing.T) {
 
 	var cfg Config
 	require.NoError(t, Load(configPath, &cfg))
-	require.Equal(t, "main", cfg.Gen.BaseBranch)
+	require.Equal(t, "hacked", cfg.Gen.BaseBranch)
 	require.False(t, cfg.LLMs[0].Proxy.Enable)
 	require.Equal(t, uint64(1), cfg.LLMs[0].Retry.Retries)
 	require.Equal(t, "toml-token", cfg.LLMs[0].OpenAI.Token)
+}
+
+func TestLoadProcessEnvOverridesDotEnv(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("GIT_GEN_BASE_BRANCH", "release")
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	writeTestFile(t, configPath, testConfig)
+	writeTestFile(t, ".env", "GIT_GEN_BASE_BRANCH=dev\n")
+
+	var cfg Config
+	require.NoError(t, Load(configPath, &cfg))
+	require.Equal(t, "release", cfg.Gen.BaseBranch)
 }
 
 func TestLoadLeavesLimitsEmptyWhenAbsent(t *testing.T) {

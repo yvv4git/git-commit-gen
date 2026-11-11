@@ -182,7 +182,8 @@ registered agent apps and return `403`, so a specific free model may stop workin
 
 `config.toml` is read from the application config directory, `~/.config/git_commit_gen/config.toml` by default.
 After that, the tool reads `.env` from the current working directory.
-Values from `.env` override `config.toml`; process environment variables are not used.
+Values from `.env` override `config.toml`. The `GIT_GEN_BASE_BRANCH` environment variable is also read
+from the process environment and takes precedence over `.env`; other process environment variables are not used.
 
 Supported `.env` key:
 
