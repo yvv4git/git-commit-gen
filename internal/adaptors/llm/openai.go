@@ -681,7 +681,6 @@ func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDes
 		zap.String("phase", "done"),
 		zap.Int("turns", run.turn),
 		zap.Int("tool_calls", run.toolCalls),
-		zap.String("commit_message", run.message),
 		zap.Int("total_tokens", run.totalTokens))
 
 	return &ports.GenCommitDescriptionResult{
