@@ -61,7 +61,9 @@ func NewGenApplication(parent context.Context, opts GenOptions) (*GenApplication
 	app.log.Info("Starting",
 		zap.String("command", "gen"),
 		zap.String("config_path", opts.ConfigPath),
-		zap.String("log_level", cfg.Log.Level))
+		zap.String("log_level", cfg.Log.Level),
+		zap.String("base_branch", cfg.Gen.BaseBranch),
+		zap.String("rules_file", cfg.Gen.RulesFile))
 
 	generatorEntity, err := app.newGenerator()
 	if err != nil {

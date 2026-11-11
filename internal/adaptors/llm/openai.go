@@ -134,6 +134,8 @@ type agentRun struct {
 	completionTokens int
 	totalTokens      int
 	requests         int
+	toolCalls        int
+	lastAssistant    string
 }
 
 type contentCall struct {
@@ -211,9 +213,21 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 			return nil, err
 		}
 		run.addUsage(choice)
+		run.lastAssistant = choice.Content
+		run.toolCalls += len(choice.ToolCalls)
 
 		if len(choice.ToolCalls) == 0 {
-			if !run.updated && reminders < maxUpdateReminders {
+			if run.updated {
+				l.log.Info("LLM finished", zap.String("content", truncate(choice.Content, 500)))
+
+				return l.result(ctx, run)
+			}
+
+			l.log.Warn("LLM returned no tool calls",
+				zap.Int("turn", turn+1),
+				zap.String("content", truncate(choice.Content, 500)))
+
+			if reminders < maxUpdateReminders {
 				reminders++
 
 				run.appendAssistant(choice)
@@ -222,7 +236,7 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 				continue
 			}
 
-			return l.result(ctx, run)
+			return nil, run.notUpdatedError()
 		}
 
 		if err := l.executeToolCalls(ctx, run, choice); err != nil {
@@ -592,9 +606,27 @@ func (r *agentRun) appendReminder(content string) {
 	r.messages = append(r.messages, llms.TextParts(llms.ChatMessageTypeHuman, content))
 }
 
+func (r *agentRun) notUpdatedError() error {
+	text := truncate(strings.TrimSpace(r.lastAssistant), 500)
+
+	if r.toolCalls == 0 {
+		return fmt.Errorf("%w: the model did not call any tool; it probably does not support tool calling or returned an empty response. Last assistant text: %q", domain.ErrCommitNotUpdated, text)
+	}
+
+	return fmt.Errorf("%w: the model called %d tool(s) but never called UpdateFirstCommit. Last assistant text: %q", domain.ErrCommitNotUpdated, r.toolCalls, text)
+}
+
+func truncate(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+
+	return value[:limit] + "..."
+}
+
 func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDescriptionResult, error) {
 	if !run.updated {
-		return nil, domain.ErrCommitNotUpdated
+		return nil, run.notUpdatedError()
 	}
 
 	if !run.verified {
