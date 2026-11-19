@@ -8,6 +8,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// +ASI08:2026 Cascading Failures
+// +T8 Repudiation & Untraceability
+// -T8 Repudiation & Untraceability: no signed audit
 func NewWithLogLevel(levelValue string) (*zap.Logger, error) {
 	level, err := zapcore.ParseLevel(levelValue)
 	if err != nil {

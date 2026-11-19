@@ -9,6 +9,9 @@ import (
 )
 
 func SetupGenCommand() *cobra.Command {
+	// -LLM06:2025 Excessive Agency: no dry-run/apply gate
+	// -ASI09:2026 Human-Agent Trust Exploitation: no confirmation gate
+	// -T10 Overwhelming Human in the Loop: no human gate
 	cmd := &cobra.Command{
 		Use:          "gen",
 		Short:        "Generate a commit message for the current branch",

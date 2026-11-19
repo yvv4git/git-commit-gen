@@ -12,6 +12,9 @@ import (
 
 var ansiSequence = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
 
+// +LLM05:2025 Improper Output Handling
+// +ASI09:2026 Human-Agent Trust Exploitation
+// +T15 Human Manipulation
 // Sanitize removes ANSI escape sequences and control characters from value
 // before printing LLM-generated text to a terminal. Without this, a commit
 // message from an untrusted diff could inject escape sequences that alter the

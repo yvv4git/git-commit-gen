@@ -199,6 +199,9 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 	tools := Tools()
 	reminders := 0
 
+	// +LLM10:2025 Unbounded Consumption
+	// +ASI08:2026 Cascading Failures
+	// +T4 Resource Overload
 	for turn := 0; turn < l.options.maxAgentTurns; turn++ {
 		run.turn = turn + 1
 
@@ -269,6 +272,12 @@ func (l *OpenAI) GenCommitDescription(ctx context.Context) (*ports.GenCommitDesc
 	return nil, fmt.Errorf("%w: max %d", domain.ErrAgentTurnsExceeded, l.options.maxAgentTurns)
 }
 
+// -LLM01:2025 Prompt Injection: CWD rules enter system prompt
+// -LLM04:2025 Data and Model Poisoning: CWD rules are trusted
+// -LLM07:2025 System Prompt Leakage: rules are sent verbatim
+// -ASI01:2026 Agent Goal Hijack: CWD rules enter system prompt
+// -ASI06:2026 Memory & Context Poisoning: CWD rules enter system prompt
+// -T1 Memory Poisoning: CWD rules enter system prompt
 func (l *OpenAI) newAgentRun() *agentRun {
 	systemParts := []string{systemPrompt}
 	if l.rules != "" {
@@ -283,6 +292,9 @@ func (l *OpenAI) newAgentRun() *agentRun {
 	}
 }
 
+// +LLM07:2025 System Prompt Leakage
+// +ASI06:2026 Memory & Context Poisoning
+// +T1 Memory Poisoning
 func (l *OpenAI) checkRulesSize() error {
 	if len(l.rules) > l.options.maxRulesBytes {
 		return fmt.Errorf("%w: %d > %d bytes", domain.ErrRulesTooLarge, len(l.rules), l.options.maxRulesBytes)
@@ -291,6 +303,9 @@ func (l *OpenAI) checkRulesSize() error {
 	return nil
 }
 
+// +LLM10:2025 Unbounded Consumption
+// +ASI06:2026 Memory & Context Poisoning
+// +T4 Resource Overload
 func (l *OpenAI) checkContextBudget(messages []llms.MessageContent) error {
 	size := messageBytes(messages)
 	if size > l.options.maxContextBytes {
@@ -321,6 +336,10 @@ func messageBytes(messages []llms.MessageContent) int {
 	return size
 }
 
+// +LLM06:2025 Excessive Agency
+// +ASI02:2026 Tool Misuse and Exploitation
+// +ASI10:2026 Rogue Agents
+// +T2 Tool Misuse
 func (l *OpenAI) executeToolCalls(ctx context.Context, run *agentRun, choice *llms.ContentChoice) error {
 	if len(choice.ToolCalls) > l.options.maxToolCallsPerTurn {
 		return fmt.Errorf("%w: got %d, max %d",
@@ -418,6 +437,9 @@ func (l *OpenAI) getCurrentBranch(ctx context.Context) (string, error) {
 	return wrapUntrustedData("branch", res.Value), nil
 }
 
+// +LLM04:2025 Data and Model Poisoning
+// +T1 Memory Poisoning
+// +T6 Intent Breaking & Goal Manipulation
 func (l *OpenAI) loadDiff(ctx context.Context, run *agentRun) (string, error) {
 	if run.diffLoaded {
 		return diffAlreadyLoaded, nil
@@ -436,6 +458,8 @@ func (l *OpenAI) loadDiff(ctx context.Context, run *agentRun) (string, error) {
 	return wrapUntrustedData("diff", redactSecrets(res.Diff)), nil
 }
 
+// +LLM06:2025 Excessive Agency
+// +T2 Tool Misuse
 func (l *OpenAI) updateFirstCommit(ctx context.Context, run *agentRun, arguments string) (string, error) {
 	if run.updated {
 		return "", domain.ErrCommitAlreadyUpdated
@@ -486,6 +510,10 @@ func (l *OpenAI) applyFirstCommit(ctx context.Context, message string) (*ports.U
 	return result, nil
 }
 
+// +LLM09:2025 Misinformation
+// -LLM09:2025 Misinformation: no semantic diff check
+// +T5 Cascading Hallucination Attacks
+// +T7 Misaligned & Deceptive Behaviors
 func (l *OpenAI) verifyFirstCommit(ctx context.Context, run *agentRun) (string, error) {
 	if err := l.checkFirstCommit(ctx, run); err != nil {
 		return "", err
@@ -693,6 +721,8 @@ func (l *OpenAI) result(ctx context.Context, run *agentRun) (*ports.GenCommitDes
 	}, nil
 }
 
+// +LLM05:2025 Improper Output Handling
+// +T2 Tool Misuse
 func (a *updateFirstCommitArgs) parse(arguments string) error {
 	if err := json.Unmarshal([]byte(arguments), a); err != nil {
 		return fmt.Errorf("%w: parse update first commit args: %w", domain.ErrToolArguments, err)
@@ -701,12 +731,20 @@ func (a *updateFirstCommitArgs) parse(arguments string) error {
 	return validateCommitMessage(a.CommitMessage)
 }
 
+// +LLM01:2025 Prompt Injection
+// +LLM04:2025 Data and Model Poisoning
+// +ASI01:2026 Agent Goal Hijack
+// +ASI06:2026 Memory & Context Poisoning
+// +T6 Intent Breaking & Goal Manipulation
 func wrapUntrustedData(kind, value string) string {
 	value = untrustedTagPattern.ReplaceAllString(value, escapedUntrustedTag)
 
 	return fmt.Sprintf("%s\nkind: %s\n%s\n%s", untrustedDataBegin, kind, value, untrustedDataEnd)
 }
 
+// +LLM05:2025 Improper Output Handling
+// +T7 Misaligned & Deceptive Behaviors
+// +T15 Human Manipulation
 func validateCommitMessage(message string) error {
 	if message == "" {
 		return domain.ErrEmptyCommitMessage
