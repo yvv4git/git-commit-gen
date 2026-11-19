@@ -26,6 +26,10 @@ type (
 	MkdirAllResult struct{}
 )
 
+type FileExistsParams struct {
+	FilePath string
+}
+
 type FileReader interface {
 	ReadFile(ctx context.Context, params *ReadFileParams) (*ReadFileResult, error)
 }
@@ -33,6 +37,7 @@ type FileReader interface {
 type FileWriter interface {
 	WriteFile(ctx context.Context, params *WriteFileParams) error
 	MkdirAll(ctx context.Context, params *MkdirAllParams) error
+	FileExists(ctx context.Context, params *FileExistsParams) (bool, error)
 }
 
 type ConfigPath interface {

@@ -39,6 +39,12 @@ git-commit-gen setup
 ```
 
 This creates `config.toml` and `rules.md` in `~/.config/git_commit_gen/`.
+Existing files are kept with a warning. To replace both files with the default contents:
+
+```bash
+git-commit-gen setup --force
+git-commit-gen setup -f
+```
 
 ## Usage
 

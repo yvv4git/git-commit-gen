@@ -13,6 +13,7 @@ import (
 type SetupOptions struct {
 	ConfigContent string
 	RulesContent  string
+	Force         bool
 }
 
 type SetupApplication struct {
@@ -35,10 +36,11 @@ func NewSetupApplication(parent context.Context, opts SetupOptions) *SetupApplic
 	}
 }
 
-func (a *SetupApplication) Run() error {
+func (a *SetupApplication) Run() (*setup.SetupResult, error) {
 	return a.service.Run(a.ctx, &setup.SetupParams{
 		ConfigContent: a.opts.ConfigContent,
 		RulesContent:  a.opts.RulesContent,
+		Force:         a.opts.Force,
 	})
 }
 
