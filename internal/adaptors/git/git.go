@@ -102,6 +102,9 @@ func (g *Git) UpdateFirstCommit(ctx context.Context, params *ports.UpdateFirstCo
 		return nil, err
 	}
 
+	// +ASI08:2026 Cascading Failures
+	// +T3 Privilege Compromise
+	// +T8 Repudiation & Untraceability
 	backupRef := newBackupRef()
 	if err := repo.Storer.SetReference(
 		plumbing.NewHashReference(plumbing.ReferenceName(backupRef), headCommit.Hash),
@@ -244,6 +247,10 @@ func (g *Git) updateFirstCommitWithGit(ctx context.Context, commits []*plumbingo
 		prevHash = hash
 	}
 
+	// -ASI03:2026 Identity and Privilege Abuse: no CAS
+	// -ASI08:2026 Cascading Failures: no CAS
+	// -T3 Privilege Compromise: no CAS
+	// -T11 Unexpected RCE and Code Attacks: no CAS
 	if _, _, err := g.runGit(ctx, "", "update-ref", headRef.Name().String(), prevHash); err != nil {
 		return nil, err
 	}
@@ -251,6 +258,8 @@ func (g *Git) updateFirstCommitWithGit(ctx context.Context, commits []*plumbingo
 	return &ports.UpdateFirstCommitResult{}, nil
 }
 
+// +ASI05:2026 Unexpected Code Execution (RCE)
+// +T11 Unexpected RCE and Code Attacks
 func (g *Git) commitTree(ctx context.Context, tree plumbing.Hash, message string, parents []plumbing.Hash) (string, error) {
 	args := []string{"commit-tree", "-S", tree.String()}
 	for _, parent := range parents {
@@ -292,6 +301,10 @@ func (g *Git) updateFirstCommitWithGoGit(ctx context.Context, repo *git.Reposito
 				return nil, err
 			}
 
+			// -ASI03:2026 Identity and Privilege Abuse: no CAS
+			// -ASI08:2026 Cascading Failures: no CAS
+			// -T3 Privilege Compromise: no CAS
+			// -T11 Unexpected RCE and Code Attacks: no CAS
 			newRef := plumbing.NewHashReference(headRef.Name(), hash)
 			if err := repo.Storer.SetReference(newRef); err != nil {
 				return nil, fmt.Errorf("update branch ref: %w", err)
@@ -304,6 +317,7 @@ func (g *Git) updateFirstCommitWithGoGit(ctx context.Context, repo *git.Reposito
 	return &ports.UpdateFirstCommitResult{}, nil
 }
 
+// +T9 Identity Spoofing & Impersonation
 func (*Git) storeCommit(repo *git.Repository, commit *plumbingobject.Commit, message string, parents []plumbing.Hash) (plumbing.Hash, error) {
 	newCommit := &plumbingobject.Commit{
 		Author:       commit.Author,

@@ -24,6 +24,8 @@ var (
 		`(?i)\b(api[_-]?key|secret|token|password|passwd|passw|authorization|private[_-]?key)\b(\s*[:=]\s*)(["']?)([^\s"',]{4,})(["']?)`)
 )
 
+// +LLM02:2025 Sensitive Information Disclosure
+// +T15 Human Manipulation
 func redactSecrets(value string) string {
 	value = privateKeyPattern.ReplaceAllString(value, redactedPrivateKey)
 	value = openAIKeyPattern.ReplaceAllString(value, redactedValue)

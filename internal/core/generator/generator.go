@@ -22,6 +22,10 @@ func NewGenerator(baseBranch string, git ports.Git, llm ports.LLM) *Generator {
 	}
 }
 
+// +LLM06:2025 Excessive Agency
+// +ASI02:2026 Tool Misuse and Exploitation
+// +T2 Tool Misuse
+// +T3 Privilege Compromise
 func (g *Generator) Gen(ctx context.Context) (*ports.GenCommitDescriptionResult, error) {
 	current, err := g.git.CurrentBranch(ctx, &ports.CurrentBranchParams{})
 	if err != nil {

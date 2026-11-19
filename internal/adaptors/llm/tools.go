@@ -17,6 +17,16 @@ type updateFirstCommitArgs struct {
 	CommitMessage string `json:"commit_message"`
 }
 
+// +LLM06:2025 Excessive Agency
+// +ASI02:2026 Tool Misuse and Exploitation
+// +ASI10:2026 Rogue Agents
+// +T2 Tool Misuse
+// -LLM08:2025 Vector and Embedding Weaknesses
+// -ASI07:2026 Insecure Inter-Agent Communication
+// -T12 Agent Communication Poisoning
+// -T13 Rogue Agents in Multi-Agent Systems
+// -T14 Human Attacks on Multi-Agent Systems
+// -T16 Insecure Inter-Agent Protocol Abuse
 func Tools() []llms.Tool {
 	return []llms.Tool{
 		{

@@ -1,5 +1,9 @@
 package llm
 
+// +LLM01:2025 Prompt Injection
+// +ASI01:2026 Agent Goal Hijack
+// +ASI10:2026 Rogue Agents
+// +T6 Intent Breaking & Goal Manipulation
 const systemPrompt = `You are an autonomous git commit agent.
 
 Your goal is to generate a commit message for the changes on the current branch.

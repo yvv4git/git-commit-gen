@@ -59,6 +59,7 @@ type modelResponse struct {
 
 const defaultRequestTimeout = 90 * time.Second
 
+// -ASI03:2026 Identity and Privilege Abuse: no per-agent identity
 func SetupLLMClient(cfg config.LLM, log *zap.Logger) (*openai.LLM, *RetryStatus, error) {
 	if err := validateAPIURL(cfg.OpenAI.API, cfg.OpenAI.AllowInsecureHTTP); err != nil {
 		return nil, nil, err
@@ -84,6 +85,9 @@ func SetupLLMClient(cfg config.LLM, log *zap.Logger) (*openai.LLM, *RetryStatus,
 	return llm, retryStatus, nil
 }
 
+// +LLM02:2025 Sensitive Information Disclosure
+// +ASI04:2026 Agentic Supply Chain Vulnerabilities
+// +T17 Supply Chain Compromise
 func validateAPIURL(rawURL string, allowInsecureHTTP bool) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Host == "" {
@@ -158,6 +162,9 @@ func (factory *transportFactory) build() (*http.Transport, error) {
 	}
 }
 
+// +LLM03:2025 Supply Chain
+// +ASI04:2026 Agentic Supply Chain Vulnerabilities
+// +T17 Supply Chain Compromise
 func (factory *transportFactory) direct() (*http.Transport, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {

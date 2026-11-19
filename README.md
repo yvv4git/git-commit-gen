@@ -184,6 +184,9 @@ The model must support tool calling. For the OpenRouter free tier, use `model = 
 the router selects an available free model automatically. Some free models are restricted to
 registered agent apps and return `403`, so a specific free model may stop working.
 
+Coverage status for OWASP LLM, Agentic Security Initiative, and Agentic AI threats:
+[docs/owasp.md](docs/owasp.md).
+
 ## Environment overrides
 
 `config.toml` is read from the application config directory, `~/.config/git_commit_gen/config.toml` by default.
