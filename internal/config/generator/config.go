@@ -10,6 +10,10 @@ type Config struct {
 	LLMs config.LLMs `toml:"llms"`
 }
 
+// +LLM10:2025 Unbounded Consumption
+// +ASI08:2026 Cascading Failures
+// +T4 Resource Overload
+// -LLM10:2025 Unbounded Consumption: no token/cost budget
 type Generator struct {
 	BaseBranch          string `toml:"baseBranch"`
 	RulesFile           string `toml:"rulesFile"`

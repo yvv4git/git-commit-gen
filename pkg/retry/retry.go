@@ -108,6 +108,8 @@ func defaultOptions() config {
 	}
 }
 
+// +LLM10:2025 Unbounded Consumption
+// +T4 Resource Overload
 func RetryWithResult[T any](ctx context.Context, operation func() (T, error), opts ...Option) (T, error) {
 	cfg := defaultOptions()
 	for _, opt := range opts {
@@ -133,6 +135,8 @@ func delayType(attempt uint, err error, cfg *retry.Config) time.Duration {
 	return retry.BackOffDelay(attempt, err, cfg)
 }
 
+// +LLM10:2025 Unbounded Consumption
+// +T4 Resource Overload
 func isRetryable(err error) bool {
 	var timeoutErr *TimeoutError
 	if errors.As(err, &timeoutErr) {

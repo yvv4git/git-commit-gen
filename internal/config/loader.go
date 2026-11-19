@@ -19,6 +19,9 @@ func Load[T any](path string, cfg *T) error {
 	return nil
 }
 
+// +LLM03:2025 Supply Chain
+// +ASI04:2026 Agentic Supply Chain Vulnerabilities
+// +T17 Supply Chain Compromise
 func LoadDotEnv() (map[string]string, error) {
 	values, err := godotenv.Read(DotEnvFileName)
 	if err != nil {

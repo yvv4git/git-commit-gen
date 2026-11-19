@@ -28,6 +28,8 @@ func newWithTimeout(timeout time.Duration) *Git {
 	return &Git{commandTimeout: timeout}
 }
 
+// +ASI08:2026 Cascading Failures
+// +T4 Resource Overload
 func (g *Git) runGit(ctx context.Context, stdin string, args ...string) (string, string, error) {
 	cmd := command{stdin: stdin, args: args}
 
@@ -39,6 +41,9 @@ func (g *Git) runGit(ctx context.Context, stdin string, args ...string) (string,
 	return result.stdout, result.stderr, nil
 }
 
+// +ASI05:2026 Unexpected Code Execution (RCE)
+// +LLM05:2025 Improper Output Handling
+// +T11 Unexpected RCE and Code Attacks
 func (c command) run(ctx context.Context) (commandResult, error) {
 	cmd := exec.CommandContext(ctx, "git", c.args...)
 	configureCommand(cmd)

@@ -25,6 +25,8 @@ func NewFS() *FS {
 	return &FS{}
 }
 
+// +LLM02:2025 Sensitive Information Disclosure
+// +LLM07:2025 System Prompt Leakage
 func (f *FS) ReadFile(ctx context.Context, params *ports.ReadFileParams) (*ports.ReadFileResult, error) {
 	path, err := f.resolveReadPath(ctx, params.FilePath)
 	if err != nil {
@@ -43,6 +45,11 @@ func (f *FS) ReadFile(ctx context.Context, params *ports.ReadFileParams) (*ports
 	return &ports.ReadFileResult{Value: string(data)}, nil
 }
 
+// -LLM01:2025 Prompt Injection: CWD rules are trusted
+// -ASI01:2026 Agent Goal Hijack: CWD rules are trusted
+// -ASI06:2026 Memory & Context Poisoning: CWD rules are trusted
+// -T1 Memory Poisoning: CWD rules are trusted
+// -T14 Human Attacks on Multi-Agent Systems: CWD rules are trusted
 func (f *FS) resolveReadPath(ctx context.Context, path string) (string, error) {
 	_, err := os.Stat(path)
 	if err == nil {
@@ -72,6 +79,8 @@ func (f *FS) FileExists(_ context.Context, params *ports.FileExistsParams) (bool
 	return false, err
 }
 
+// +LLM02:2025 Sensitive Information Disclosure
+// +T3 Privilege Compromise
 func (f *FS) WriteFile(_ context.Context, params *ports.WriteFileParams) error {
 	if err := os.WriteFile(params.FilePath, []byte(params.Content), fileMode); err != nil {
 		return err
