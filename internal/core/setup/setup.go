@@ -11,6 +11,11 @@ import (
 type SetupParams struct {
 	ConfigContent string
 	RulesContent  string
+	Force         bool
+}
+
+type SetupResult struct {
+	Skipped []string
 }
 
 type Setup struct {
@@ -25,29 +30,61 @@ func NewSetup(configDir ports.ConfigPath, writer ports.FileWriter) *Setup {
 	}
 }
 
-func (s *Setup) Run(ctx context.Context, params *SetupParams) error {
+func (s *Setup) Run(ctx context.Context, params *SetupParams) (*SetupResult, error) {
 	dir, err := s.configDir.DefaultConfigDir(ctx)
 	if err != nil {
-		return fmt.Errorf("get config dir: %w", err)
+		return nil, fmt.Errorf("get config dir: %w", err)
 	}
 
 	if err := s.writer.MkdirAll(ctx, &ports.MkdirAllParams{DirPath: dir}); err != nil {
-		return fmt.Errorf("create config dir: %w", err)
+		return nil, fmt.Errorf("create config dir: %w", err)
 	}
 
-	if err := s.writer.WriteFile(ctx, &ports.WriteFileParams{
-		FilePath: filepath.Join(dir, "config.toml"),
-		Content:  params.ConfigContent,
-	}); err != nil {
-		return fmt.Errorf("write config: %w", err)
+	result := &SetupResult{}
+	configPath := filepath.Join(dir, "config.toml")
+	writeConfig, err := s.shouldWrite(ctx, configPath, params.Force)
+	if err != nil {
+		return nil, fmt.Errorf("check config: %w", err)
+	}
+	if writeConfig {
+		if err := s.writer.WriteFile(ctx, &ports.WriteFileParams{
+			FilePath: configPath,
+			Content:  params.ConfigContent,
+		}); err != nil {
+			return nil, fmt.Errorf("write config: %w", err)
+		}
+	} else {
+		result.Skipped = append(result.Skipped, configPath)
 	}
 
-	if err := s.writer.WriteFile(ctx, &ports.WriteFileParams{
-		FilePath: filepath.Join(dir, "rules.md"),
-		Content:  params.RulesContent,
-	}); err != nil {
-		return fmt.Errorf("write rules: %w", err)
+	rulesPath := filepath.Join(dir, "rules.md")
+	writeRules, err := s.shouldWrite(ctx, rulesPath, params.Force)
+	if err != nil {
+		return nil, fmt.Errorf("check rules: %w", err)
+	}
+	if writeRules {
+		if err := s.writer.WriteFile(ctx, &ports.WriteFileParams{
+			FilePath: rulesPath,
+			Content:  params.RulesContent,
+		}); err != nil {
+			return nil, fmt.Errorf("write rules: %w", err)
+		}
+	} else {
+		result.Skipped = append(result.Skipped, rulesPath)
 	}
 
-	return nil
+	return result, nil
+}
+
+func (s *Setup) shouldWrite(ctx context.Context, path string, force bool) (bool, error) {
+	if force {
+		return true, nil
+	}
+
+	exists, err := s.writer.FileExists(ctx, &ports.FileExistsParams{FilePath: path})
+	if err != nil {
+		return false, err
+	}
+
+	return !exists, nil
 }

@@ -60,6 +60,18 @@ func (f *FS) resolveReadPath(ctx context.Context, path string) (string, error) {
 	return filepath.Join(dir, RulesFileName), nil
 }
 
+func (f *FS) FileExists(_ context.Context, params *ports.FileExistsParams) (bool, error) {
+	_, err := os.Stat(params.FilePath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, err
+}
+
 func (f *FS) WriteFile(_ context.Context, params *ports.WriteFileParams) error {
 	if err := os.WriteFile(params.FilePath, []byte(params.Content), fileMode); err != nil {
 		return err
